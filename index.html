@@ -3,771 +3,964 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>石頭少爺 Agent</title>
+<title>石頭少爺 Agent｜月線波段＋N字 Fibonacci</title>
 <style>
-* {
-    box-sizing: border-box;
+*{box-sizing:border-box}
+:root{
+  --blue:#0b5ed7;
+  --blue2:#164a9c;
+  --bg:#f4f7fb;
+  --card:#fff;
+  --text:#172033;
+  --muted:#667085;
+  --line:#e3e9f2;
+  --green:#137333;
+  --greenbg:#e9f8ef;
+  --red:#b42318;
+  --redbg:#fff0f0;
+  --yellow:#8a6700;
+  --yellowbg:#fff8df;
+  --purple:#6941c6;
+  --purplebg:#f4f0ff;
+  --cyan:#027a8a;
+  --cyanbg:#ecfdff;
+  --dark:#172033;
 }
-body {
-    margin: 0;
-    font-family:
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        "Noto Sans TC",
-        sans-serif;
-    background: #f4f7fb;
-    color: #172033;
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC","Microsoft JhengHei",sans-serif;
+  background:var(--bg);
+  color:var(--text)
 }
-.container {
-    width: min(100% - 30px, 900px);
-    margin: 0 auto;
+.container{width:min(100% - 28px,1040px);margin:0 auto}
+.header{
+  background:linear-gradient(135deg,var(--blue),var(--blue2));
+  color:#fff;
+  padding:26px 0;
+  box-shadow:0 4px 15px rgba(0,0,0,.12)
 }
-/* Header */
-.header {
-    background: linear-gradient(135deg, #0b5ed7, #164a9c);
-    color: white;
-    padding: 28px 0;
-    box-shadow: 0 4px 15px rgba(0,0,0,.12);
+.header h1{margin:0;font-size:29px;font-weight:900}
+.header p{margin:7px 0 0;opacity:.92;line-height:1.6}
+.version-pill{
+  display:inline-block;
+  margin-top:10px;
+  padding:5px 10px;
+  border:1px solid rgba(255,255,255,.25);
+  background:rgba(255,255,255,.12);
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800
 }
-.header h1 {
-    margin: 0;
-    font-size: 30px;
-    font-weight: 800;
+.panel{
+  background:var(--card);
+  border-radius:18px;
+  padding:22px;
+  box-shadow:0 5px 20px rgba(0,0,0,.07);
+  margin-top:18px
 }
-.header p {
-    margin: 8px 0 0;
-    opacity: .9;
+.search-row{display:flex;gap:10px}
+.stock-input{
+  flex:1;
+  min-width:0;
+  padding:14px;
+  border:2px solid #dce3ee;
+  border-radius:10px;
+  font-size:18px;
+  outline:none
 }
-/* Search */
-.search-card {
-    background: white;
-    margin-top: 25px;
-    padding: 22px;
-    border-radius: 18px;
-    box-shadow: 0 5px 20px rgba(0,0,0,.07);
+.stock-input:focus{border-color:var(--blue)}
+.btn{
+  border:0;
+  border-radius:10px;
+  background:var(--blue);
+  color:#fff;
+  padding:0 26px;
+  font-size:17px;
+  font-weight:800;
+  cursor:pointer
 }
-.search-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin-bottom: 12px;
+.btn:disabled{background:#9aa8bb;cursor:not-allowed}
+.hint{font-size:13px;color:var(--muted);margin-top:9px;line-height:1.7}
+.loading{display:none;text-align:center;padding-top:18px;color:var(--blue);font-weight:800}
+.error{display:none;margin-top:14px;padding:14px;border-radius:10px;background:var(--redbg);color:var(--red);line-height:1.6}
+.result{display:none}
+.stock-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.stock-name{font-size:28px;font-weight:900}
+.meta{color:var(--muted);font-size:14px;margin-top:5px;line-height:1.7}
+.status{margin-top:16px;border-radius:14px;padding:16px;font-weight:900;text-align:center;line-height:1.6}
+.status.ok{background:var(--greenbg);color:var(--green);border:1px solid #b7e4c7}
+.status.no{background:var(--redbg);color:var(--red);border:1px solid #f2b8b5}
+.section-title{font-size:19px;font-weight:900;margin-bottom:14px}
+.section-subtitle{font-size:13px;color:var(--muted);line-height:1.7;margin:-5px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid.four{grid-template-columns:repeat(4,1fr)}
+.card{border:1px solid var(--line);background:#f9fbfd;border-radius:14px;padding:16px}
+.card.strong{background:#eef5ff;border-color:#c8dcfb}
+.card.support{background:#f0fff5;border-color:#b7e4c7}
+.card.risk{background:#fff8f1;border-color:#f6c89f}
+.card.target-main{background:#f4f0ff;border-color:#d7c7ff}
+.label{font-size:13px;color:var(--muted);margin-bottom:7px}
+.value{font-size:24px;font-weight:900}
+.unit{font-size:13px;color:var(--muted);margin-left:3px}
+.sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+.rsi-note{margin-top:12px;padding:13px 15px;border-radius:12px;font-size:13px;line-height:1.7}
+.rsi-note.normal{background:#f5f8fd;color:#475467}
+.rsi-note.warn{background:var(--yellowbg);color:var(--yellow);border:1px solid #f2d675}
+.rsi-note.hot{background:var(--redbg);color:var(--red);border:1px solid #f2b8b5}
+.target-head{display:flex;justify-content:space-between;gap:14px;align-items:center;background:#172033;color:#fff;padding:15px 17px;border-radius:14px 14px 0 0}
+.target-base-label{font-size:13px;opacity:.85}
+.target-base{font-size:27px;font-weight:900}
+.target-body{background:#eef5ff;border-radius:0 0 14px 14px;padding:15px}
+.target-summary{font-size:13px;color:#475467;margin-bottom:12px;line-height:1.6}
+.targets{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.target{position:relative;background:#fff;border:2px solid transparent;border-radius:12px;padding:13px 8px;text-align:center}
+.target .m{font-size:13px;color:var(--muted);font-weight:800}
+.target .p{font-size:19px;font-weight:900;margin-top:3px}
+.target.reached{border-color:#b7e4c7;background:#f4fff7}
+.target.next{border-color:#f0cf62;background:#fffbed}
+.badge{position:absolute;top:5px;right:6px;font-size:10px;border-radius:20px;padding:2px 6px;background:#e9f8ef;color:var(--green);font-weight:800}
+.next .badge{background:#fff1b8;color:#755900}
+.no-target{display:none;background:var(--redbg);color:var(--red);border:1px solid #f2b8b5;border-radius:14px;padding:18px;line-height:1.7;font-weight:700}
+.target-wrap{display:none}
+.breakbox{background:#f9fbfd;border:1px solid var(--line);border-radius:12px;padding:14px;line-height:1.7}
+.rule{margin-top:12px;border-left:4px solid var(--blue);background:#f5f8fd;border-radius:10px;padding:13px 15px;font-size:13px;color:#475467;line-height:1.7}
+
+.fib-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.fib-status{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  border-radius:999px;
+  padding:8px 13px;
+  font-size:14px;
+  font-weight:900;
+  border:1px solid var(--line)
 }
-.search-row {
-    display: flex;
-    gap: 10px;
+.fib-status.not-formed{background:#f5f8fd;color:#475467}
+.fib-status.forming{background:var(--yellowbg);color:var(--yellow);border-color:#f2d675}
+.fib-status.confirmed{background:var(--greenbg);color:var(--green);border-color:#b7e4c7}
+.fib-message{font-size:14px;color:#475467;line-height:1.7;margin-bottom:14px}
+.fib-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.fib-point{border:1px solid var(--line);border-radius:13px;padding:14px;background:#fbfcfe}
+.fib-point .point-name{font-size:13px;color:var(--muted);font-weight:800}
+.fib-point .point-price{font-size:22px;font-weight:900;margin-top:5px}
+.fib-point .point-date{font-size:12px;color:var(--muted);margin-top:4px}
+.fib-levels{display:none;margin-top:14px}
+.fib-level-title{font-size:15px;font-weight:900;margin:14px 0 9px}
+.level-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.level{border:1px solid var(--line);border-radius:11px;padding:11px;text-align:center;background:#fff}
+.level .ratio{font-size:12px;color:var(--muted);font-weight:800}
+.level .price{font-size:18px;font-weight:900;margin-top:4px}
+.level.support{background:#f0fff5;border-color:#b7e4c7}
+.level.risk{background:#fff8f1;border-color:#f6c89f}
+.level.main{background:#f4f0ff;border-color:#d7c7ff}
+.fib-metrics{display:none;margin-top:14px}
+.fib-alert{display:none;margin-top:13px;padding:13px 15px;border-radius:12px;font-size:13px;font-weight:800;line-height:1.7}
+.fib-alert.info{display:block;background:var(--cyanbg);color:var(--cyan);border:1px solid #b6edf3}
+.fib-alert.warn{display:block;background:var(--yellowbg);color:var(--yellow);border:1px solid #f2d675}
+.fib-alert.hot{display:block;background:var(--redbg);color:var(--red);border:1px solid #f2b8b5}
+.history-wrap{margin-top:17px}
+.history-title{font-size:15px;font-weight:900;margin-bottom:9px}
+.history-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.history-card{display:none;border:1px solid var(--line);border-radius:13px;padding:14px;background:#fbfcfe;font-size:13px;line-height:1.75}
+.history-card.show{display:block}
+.history-card.invalidated{border-color:#f2d675;background:#fffdf3}
+.history-card.failed{border-color:#f2b8b5;background:#fff7f7}
+.history-card.completed{border-color:#b7e4c7;background:#f5fff8}
+.history-card h3{font-size:14px;margin:0 0 8px}
+.history-card .history-row{color:#475467}
+.history-card .history-row strong{color:var(--text)}
+.empty-history{font-size:13px;color:var(--muted);padding:8px 0}
+
+.copy-actions{display:flex;justify-content:center;margin-top:18px}
+.copy-btn{border:0;border-radius:12px;background:#172033;color:#fff;padding:14px 24px;font-size:16px;font-weight:900;cursor:pointer;min-width:220px;transition:.15s ease}
+.copy-btn:hover{transform:translateY(-1px);background:#0f172a}
+.copy-btn:disabled{background:#9aa8bb;cursor:not-allowed;transform:none}
+.copy-message{min-height:22px;margin-top:10px;text-align:center;font-size:13px;font-weight:800;color:var(--green)}
+.footer{text-align:center;color:#98a2b3;font-size:13px;line-height:1.7;padding:30px 0}
+
+@media(max-width:860px){
+  .grid,.grid.four{grid-template-columns:repeat(2,1fr)}
+  .targets{grid-template-columns:repeat(3,1fr)}
+  .fib-grid,.level-grid{grid-template-columns:repeat(2,1fr)}
+  .history-grid{grid-template-columns:1fr}
 }
-.stock-input {
-    flex: 1;
-    padding: 14px;
-    border: 2px solid #dce3ee;
-    border-radius: 10px;
-    font-size: 18px;
-    outline: none;
-}
-.stock-input:focus {
-    border-color: #0b5ed7;
-}
-.search-button {
-    border: none;
-    background: #0b5ed7;
-    color: white;
-    padding: 0 25px;
-    border-radius: 10px;
-    font-size: 17px;
-    font-weight: 700;
-    cursor: pointer;
-}
-.search-button:hover {
-    background: #084da9;
-}
-.search-button:disabled {
-    background: #9aa8bb;
-    cursor: not-allowed;
-}
-/* Loading */
-.loading {
-    display: none;
-    text-align: center;
-    padding: 25px;
-    color: #0b5ed7;
-    font-weight: 700;
-}
-/* Error */
-.error {
-    display: none;
-    background: #fff1f1;
-    color: #b42318;
-    padding: 15px;
-    border-radius: 10px;
-    margin-top: 15px;
-}
-/* Result */
-.result {
-    display: none;
-    margin-top: 20px;
-}
-/* Stock title */
-.stock-header {
-    background: white;
-    border-radius: 18px;
-    padding: 22px;
-    box-shadow: 0 5px 20px rgba(0,0,0,.07);
-    margin-bottom: 15px;
-}
-.stock-name {
-    font-size: 26px;
-    font-weight: 800;
-}
-.stock-code {
-    color: #667085;
-    margin-top: 4px;
-}
-/* Signal */
-.signal {
-    margin-top: 18px;
-    padding: 20px;
-    border-radius: 15px;
-    text-align: center;
-    font-size: 22px;
-    font-weight: 800;
-}
-.signal.green {
-    background: #e9f8ef;
-    color: #137333;
-    border: 1px solid #b7e4c7;
-}
-.signal.yellow {
-    background: #fff8df;
-    color: #8a6700;
-    border: 1px solid #f2d675;
-}
-.signal.red {
-    background: #fff0f0;
-    color: #b42318;
-    border: 1px solid #f2b8b5;
-}
-/* Grid */
-.grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-}
-.card {
-    background: white;
-    border-radius: 16px;
-    padding: 18px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.06);
-}
-.label {
-    color: #667085;
-    font-size: 14px;
-    margin-bottom: 7px;
-}
-.value {
-    font-size: 25px;
-    font-weight: 800;
-}
-.unit {
-    font-size: 14px;
-    margin-left: 3px;
-    color: #667085;
-}
-/* Entry zone */
-.entry-zone {
-    margin-top: 15px;
-    background: linear-gradient(135deg, #fff9e6, #fffdf5);
-    border: 2px solid #f0cf62;
-    border-radius: 18px;
-    padding: 22px;
-}
-.entry-title {
-    font-size: 18px;
-    font-weight: 800;
-    color: #755900;
-}
-.entry-value {
-    font-size: 30px;
-    font-weight: 900;
-    margin-top: 8px;
-}
-/* Monthly range */
-.range-card {
-    margin-top: 15px;
-    background: white;
-    border-radius: 18px;
-    padding: 22px;
-    box-shadow: 0 4px 16px rgba(0,0,0,.06);
-}
-.range-title {
-    font-weight: 800;
-    margin-bottom: 15px;
-}
-.range {
-    position: relative;
-    height: 14px;
-    background: #e6ebf2;
-    border-radius: 20px;
-}
-.range-fill {
-    position: absolute;
-    height: 100%;
-    left: 0;
-    right: 0;
-    background: linear-gradient(90deg, #f3c34f, #0b5ed7);
-    border-radius: 20px;
-}
-.range-price {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 9px;
-    color: #667085;
-    font-size: 14px;
-}
-/* Footer */
-.footer {
-    text-align: center;
-    padding: 35px 0;
-    color: #98a2b3;
-    font-size: 13px;
-}
-/* Mobile */
-@media (max-width: 600px) {
-    .header h1 {
-        font-size: 25px;
-    }
-    .search-row {
-        flex-direction: column;
-    }
-    .search-button {
-        padding: 14px;
-    }
-    .grid {
-        grid-template-columns: 1fr;
-    }
-    .value {
-        font-size: 23px;
-    }
+@media(max-width:600px){
+  .search-row{flex-direction:column}
+  .btn{padding:14px}
+  .grid,.grid.four{grid-template-columns:1fr}
+  .targets{grid-template-columns:repeat(2,1fr)}
+  .fib-grid,.level-grid{grid-template-columns:repeat(2,1fr)}
+  .stock-name{font-size:25px}
+  .value{font-size:22px}
+  .copy-btn{width:100%}
 }
 </style>
 </head>
 <body>
 <header class="header">
-    <div class="container">
-        <h1>🪨 石頭少爺 Agent</h1>
-        <p>月線波段技術分析系統</p>
-    </div>
+  <div class="container">
+    <h1>⏳傑克.石頭Agent</h1>
+    <p>月線波段條件判斷＋固定倍數目標價＋N字 Fibonacci 分析</p>
+    <span class="version-pill">測試版｜Fibonacci Worker V2.4</span>
+  </div>
 </header>
+
 <main class="container">
-    <!-- 搜尋 -->
-    <section class="search-card">
-        <div class="search-title">
-            輸入股票代號
+  <section class="panel">
+    <div class="section-title">🔎 輸入股票代號</div>
+    <div class="search-row">
+      <input id="stockInput" class="stock-input" inputmode="numeric" maxlength="6" placeholder="例如：8039" value="8039">
+      <button id="searchButton" class="btn" type="button" onclick="analyzeStock()">開始分析</button>
+    </div>
+    <div class="hint">本測試頁使用獨立 Fibonacci V2.4 Worker。月線邏輯與固定 3×～10× 目標價仍保留；N字分析獨立顯示，不與月線「建倉區／觀察區」混為同一訊號。</div>
+    <div id="loading" class="loading">⏳ 正在取得股票資料並分析...</div>
+    <div id="error" class="error"></div>
+  </section>
+
+  <section id="result" class="result">
+    <section class="panel">
+      <div class="stock-top">
+        <div>
+          <div id="stockName" class="stock-name">-</div>
+          <div id="stockMeta" class="meta">-</div>
         </div>
-        <div class="search-row">
-            <input
-                id="stockInput"
-                class="stock-input"
-                type="text"
-                inputmode="numeric"
-                maxlength="6"
-                placeholder="例如：2330"
-                value="2330"
-            >
-            <button
-                id="searchButton"
-                class="search-button"
-                onclick="analyzeStock()"
-            >
-                開始分析
-            </button>
-        </div>
-        <div id="error" class="error"></div>
-        <div id="loading" class="loading">
-            ⏳ 正在取得股票資料...
-        </div>
+        <div class="meta" id="closeDate">-</div>
+      </div>
+      <div id="status" class="status">-</div>
     </section>
-    <!-- 分析結果 -->
-    <section id="result" class="result">
-        <div class="stock-header">
-            <div id="stockName" class="stock-name">
-                -
-            </div>
-            <div id="stockCode" class="stock-code">
-                -
-            </div>
-            <div id="signal" class="signal">
-                -
-            </div>
-        </div>
-        <!-- 技術資料 -->
-        <div class="grid">
-            <div class="card">
-                <div class="label">
-                    今日收盤價
-                </div>
-                <div class="value">
-                    <span id="close">-</span>
-                    <span class="unit">元</span>
-                </div>
-            </div>
-            <div class="card">
-                <div class="label">
-                    月線 20MA
-                </div>
-                <div class="value">
-                    <span id="ma20">-</span>
-                    <span class="unit">元</span>
-                </div>
-            </div>
-            <div class="card">
-                <div class="label">
-                    月線最高價
-                </div>
-                <div class="value">
-                    <span id="monthHigh">-</span>
-                    <span class="unit">元</span>
-                </div>
-            </div>
-            <div class="card">
-                <div class="label">
-                    月線最低價
-                </div>
-                <div class="value">
-                    <span id="monthLow">-</span>
-                    <span class="unit">元</span>
-                </div>
-            </div>
-            <div class="card">
-                <div class="label">
-                    RSI
-                </div>
-                <div class="value">
-                    <span id="rsi">-</span>
-                </div>
-            </div>
-            <div class="card">
-                <div class="label">
-                    月線收盤
-                </div>
-                <div class="value">
-                    <span id="monthClose">-</span>
-                    <span class="unit">元</span>
-                </div>
-            </div>
-        </div>
-        <!-- 建倉區 -->
-        <div class="entry-zone">
-            <div class="entry-title">
-                🎯 石頭少爺建倉區
-            </div>
-            <div id="entryZone" class="entry-value">
-                -
-            </div>
-        </div>
-        <!-- 月線區間 -->
-        <div class="range-card">
-            <div class="range-title">
-                📊 月線價格區間
-            </div>
-            <div class="range">
-                <div class="range-fill"></div>
-            </div>
-            <div class="range-price">
-                <span>
-                    最低：
-                    <strong id="rangeLow">-</strong>
-                </span>
-                <span>
-                    最高：
-                    <strong id="rangeHigh">-</strong>
-                </span>
-            </div>
-        </div>
+
+    <section class="panel">
+      <div class="section-title">① 基本資料與條件</div>
+      <div class="grid">
+        <div class="card strong"><div class="label">今日最新收盤價</div><div class="value"><span id="close">-</span><span class="unit">元</span></div></div>
+        <div class="card"><div class="label">目前月K收盤</div><div class="value"><span id="latestMonthClose">-</span><span class="unit">元</span></div></div>
+        <div class="card"><div class="label">目前月線 20MA</div><div class="value"><span id="latestMA20">-</span><span class="unit">元</span></div></div>
+        <div class="card"><div class="label">起始月份</div><div class="value" id="startMonth">-</div></div>
+        <div class="card"><div class="label">起始月收盤</div><div class="value"><span id="startClose">-</span><span class="unit">元</span></div></div>
+        <div class="card"><div class="label">日 RSI 5T</div><div class="value" id="dailyRsi">-</div><div class="sub" id="dailyRsiSub">以 Worker 的 dailyRsi5 為準</div></div>
+      </div>
+      <div id="rsiNote" class="rsi-note normal">日 RSI 僅作高檔風險提醒，不單獨作為進出場訊號。</div>
     </section>
+
+    <section class="panel">
+      <div class="section-title">② 起始月K高低點與倍數基準</div>
+      <div class="grid">
+        <div class="card"><div class="label">起始月最高</div><div class="value"><span id="startHigh">-</span><span class="unit">元</span></div></div>
+        <div class="card"><div class="label">起始月最低</div><div class="value"><span id="startLow">-</span><span class="unit">元</span></div></div>
+        <div class="card strong"><div class="label">基準價</div><div class="value"><span id="baseValue">-</span><span class="unit">元</span></div><div class="sub">(起始月最高＋最低) ÷ 2</div></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">③ 固定倍數目標價</div>
+      <div id="targetWrap" class="target-wrap">
+        <div class="target-head">
+          <div><div class="target-base-label">基準價</div><div id="targetBase" class="target-base">-</div></div>
+          <div style="text-align:right"><div class="target-base-label">現價倍數</div><div id="currentMultiple" class="target-base">-</div></div>
+        </div>
+        <div class="target-body">
+          <div id="targetSummary" class="target-summary">-</div>
+          <div id="targets" class="targets"></div>
+        </div>
+      </div>
+      <div id="noTarget" class="no-target">條件不符合，無法計算目標價。</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">④ 月線區段判斷</div>
+      <div id="previousBreak" class="breakbox">-</div>
+      <div class="rule"><strong>月線規則：</strong>月K收盤價 ≥ 當月20MA，建立或維持有效區段；任何月份月K收盤價 &lt; 當月20MA，前一段立即失效；下一次重新 ≥ 20MA 的月份，才建立新的起始月K。只有目前仍屬有效區段時，才計算 3×～10× 固定倍數目標價。</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">⑤ 📐 N字 Fibonacci 分析</div>
+      <div class="section-subtitle">N字與月線是兩套不同判斷。N字狀態只描述目前 Swing A→B→C 結構，不代表月線是否符合建倉條件。</div>
+
+      <div class="fib-head">
+        <div id="fibStatus" class="fib-status not-formed">⚪ 尚未形成</div>
+        <div id="fibAlgorithm" class="meta">-</div>
+      </div>
+      <div id="fibMessage" class="fib-message">-</div>
+
+      <div class="fib-grid">
+        <div class="fib-point">
+          <div class="point-name">A｜Swing Low 起漲點</div>
+          <div id="fibA" class="point-price">-</div>
+          <div id="fibADate" class="point-date">-</div>
+        </div>
+        <div class="fib-point">
+          <div class="point-name">B｜Swing High 波段高點</div>
+          <div id="fibB" class="point-price">-</div>
+          <div id="fibBDate" class="point-date">-</div>
+        </div>
+        <div class="fib-point">
+          <div class="point-name">C｜Swing Low 回檔低點</div>
+          <div id="fibC" class="point-price">-</div>
+          <div id="fibCDate" class="point-date">-</div>
+        </div>
+        <div class="fib-point">
+          <div class="point-name">AB 波段幅度</div>
+          <div id="fibAB" class="point-price">-</div>
+          <div id="fibRetraceDepth" class="point-date">-</div>
+        </div>
+      </div>
+
+      <div id="fibLevels" class="fib-levels">
+        <div class="fib-level-title">回撤支撐／風控</div>
+        <div class="level-grid">
+          <div class="level"><div class="ratio">0.382</div><div id="ret382" class="price">-</div></div>
+          <div class="level"><div class="ratio">0.500</div><div id="ret500" class="price">-</div></div>
+          <div class="level support"><div class="ratio">0.618 主要支撐</div><div id="ret618" class="price">-</div></div>
+          <div class="level risk"><div class="ratio">0.764 深度風控</div><div id="ret764" class="price">-</div></div>
+        </div>
+
+        <div class="fib-level-title">延伸目標</div>
+        <div class="level-grid">
+          <div class="level"><div class="ratio">1.000</div><div id="ext1000" class="price">-</div></div>
+          <div class="level"><div class="ratio">1.272</div><div id="ext1272" class="price">-</div></div>
+          <div class="level"><div class="ratio">1.382</div><div id="ext1382" class="price">-</div></div>
+          <div class="level main"><div id="target1618Label" class="ratio">1.618 主要目標</div><div id="ext1618" class="price">-</div></div>
+          <div class="level"><div class="ratio">2.000</div><div id="ext2000" class="price">-</div></div>
+          <div class="level"><div class="ratio">2.618</div><div id="ext2618" class="price">-</div></div>
+        </div>
+      </div>
+
+      <div id="fibMetrics" class="fib-metrics">
+        <div class="grid four">
+          <div class="card support"><div class="label">距離 0.618 支撐</div><div class="value" id="distanceSupport">-</div></div>
+          <div class="card target-main"><div class="label">距離 1.618 目標</div><div class="value" id="distanceTarget">-</div></div>
+          <div class="card risk"><div class="label">目前風險</div><div class="value" id="fibRisk">-</div></div>
+          <div class="card strong"><div class="label">風險報酬</div><div class="value" id="fibRR">-</div></div>
+        </div>
+      </div>
+
+      <div id="fibAlert" class="fib-alert"></div>
+
+      <div class="history-wrap">
+        <div class="history-title">歷史 N 字紀錄</div>
+        <div id="emptyHistory" class="empty-history">目前沒有可顯示的歷史 N 字紀錄。</div>
+        <div class="history-grid">
+          <div id="historyInvalidated" class="history-card invalidated"></div>
+          <div id="historyFailed" class="history-card failed"></div>
+          <div id="historyCompleted" class="history-card completed"></div>
+        </div>
+      </div>
+
+      <div class="rule"><strong>N字 V2.4 規則：</strong>A→B 後必須形成有效 C 才算完整 N 字；C 後任一已完成日K收盤價 &gt; B 才確認突破。突破前 Low &lt; A 則 invalidated；突破後尚未達 1.618 前，若 Low &lt; A 或收盤跌破 0.764 則 failed；任一已完成日K最高價 ≥ 1.618 則 completed。completed／failed 退出目前有效 N 字。</div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">⑥ 一鍵複製分析報告</div>
+      <div class="hint">會整理月線條件、固定倍數目標、日 RSI、目前 N 字狀態、Fibonacci 價位與歷史 N 字紀錄。</div>
+      <div class="copy-actions">
+        <button id="copyReportButton" class="copy-btn" type="button" onclick="copyReport()">📋 一鍵複製報告</button>
+      </div>
+      <div id="copyMessage" class="copy-message"></div>
+    </section>
+  </section>
 </main>
-<footer class="footer">
-    石頭少爺 Agent<br>
-    技術分析僅供研究與決策參考
-</footer>
+
+<footer class="footer">石頭少爺 Agent｜Fibonacci V2.4 測試頁<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+
 <script>
-/*
-|--------------------------------------------------------------------------
-| Cloudflare Worker API
-|--------------------------------------------------------------------------
-*/
-const API_BASE_URL =
-    "https://shitou-agent-api.d318426.workers.dev";
-/*
-|--------------------------------------------------------------------------
-| 工具：安全取得數字
-|--------------------------------------------------------------------------
-*/
-function numberValue(value) {
-    if (
-        value === null ||
-        value === undefined ||
-        value === ""
-    ) {
-        return null;
-    }
-    const number = Number(value);
-    return Number.isFinite(number)
-        ? number
-        : null;
+const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
+const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
+let lastReportData=null;
+
+function n(v){
+  if(v===null||v===undefined||v==="")return null;
+  const x=Number(v);
+  return Number.isFinite(x)?x:null;
 }
-/*
-|--------------------------------------------------------------------------
-| 工具：格式化數字
-|--------------------------------------------------------------------------
-*/
-function formatNumber(value, digits = 2) {
-    const number = numberValue(value);
-    if (number === null) {
-        return "-";
-    }
-    return number.toLocaleString(
-        "zh-TW",
-        {
-            minimumFractionDigits: digits,
-            maximumFractionDigits: digits
-        }
-    );
+
+function fmt(v,d=2){
+  const x=n(v);
+  return x===null?"-":x.toLocaleString("zh-TW",{minimumFractionDigits:d,maximumFractionDigits:d});
 }
-/*
-|--------------------------------------------------------------------------
-| 取得欄位
-|--------------------------------------------------------------------------
-|
-| Worker 未來如果稍微調整 JSON 欄位名稱，
-| 這裡也可以兼容。
-|
-*/
-function getField(data, names) {
-    for (const name of names) {
-        if (
-            data[name] !== undefined &&
-            data[name] !== null
-        ) {
-            return data[name];
-        }
-    }
-    return null;
+
+function pct(v){
+  const x=n(v);
+  return x===null?"-":`${fmt(x,2)}%`;
 }
-/*
-|--------------------------------------------------------------------------
-| 開始分析
-|--------------------------------------------------------------------------
-*/
-async function analyzeStock() {
-    const input =
-        document.getElementById("stockInput");
-    const button =
-        document.getElementById("searchButton");
-    const loading =
-        document.getElementById("loading");
-    const error =
-        document.getElementById("error");
-    const result =
-        document.getElementById("result");
-    const stock =
-        input.value.trim();
-    /*
-    | 股票代號驗證
-    */
-    if (!/^\d{4,6}$/.test(stock)) {
-        error.style.display = "block";
-        error.innerText =
-            "請輸入正確的股票代號，例如 2330。";
-        result.style.display = "none";
-        return;
-    }
-    /*
-    | 初始化畫面
-    */
-    error.style.display = "none";
-    result.style.display = "none";
-    loading.style.display = "block";
-    button.disabled = true;
-    button.innerText = "分析中...";
-    try {
-        /*
-        | 建立 API URL
-        */
-        const url =
-            ${API_BASE_URL}/?stock=${encodeURIComponent(stock)};
-        /*
-        | 呼叫 Cloudflare Worker
-        */
-        const response =
-            await fetch(url, {
-                method: "GET",
-                headers: {
-                    "Accept": "application/json"
-                },
-                cache: "no-store"
-            });
-        /*
-        | HTTP 錯誤
-        */
-        if (!response.ok) {
-            throw new Error(
-                API 回應錯誤：HTTP ${response.status}
-            );
-        }
-        /*
-        | 解析 JSON
-        */
-        const data =
-            await response.json();
-        console.log(
-            "石頭少爺 Agent API:",
-            data
-        );
-        /*
-        | 取得資料
-        */
-        const name =
-            getField(
-                data,
-                [
-                    "name",
-                    "stockName",
-                    "stock_name",
-                    "股票名稱"
-                ]
-            );
-        const code =
-            getField(
-                data,
-                [
-                    "stock",
-                    "code",
-                    "symbol",
-                    "股票代號"
-                ]
-            ) || stock;
-        const close =
-            getField(
-                data,
-                [
-                    "close",
-                    "price",
-                    "收盤價"
-                ]
-            );
-        const ma20 =
-            getField(
-                data,
-                [
-                    "ma20",
-                    "MA20",
-                    "month20MA",
-                    "月線20MA"
-                ]
-            );
-        const monthClose =
-            getField(
-                data,
-                [
-                    "monthClose",
-                    "month_close",
-                    "monthlyClose",
-                    "月線收盤"
-                ]
-            );
-        const monthHigh =
-            getField(
-                data,
-                [
-                    "monthHigh",
-                    "month_high",
-                    "monthlyHigh",
-                    "月線最高"
-                ]
-            );
-        const monthLow =
-            getField(
-                data,
-                [
-                    "monthLow",
-                    "month_low",
-                    "monthlyLow",
-                    "月線最低"
-                ]
-            );
-        const rsi =
-            getField(
-                data,
-                [
-                    "rsi",
-                    "RSI"
-                ]
-            );
-        const entry =
-            getField(
-                data,
-                [
-                    "entry",
-                    "建倉區"
-                ]
-            );
-        const stage =
-            getField(
-                data,
-                [
-                    "stage",
-                    "phase",
-                    "階段"
-                ]
-            );
-        /*
-        | 股票名稱
-        */
-        document.getElementById(
-            "stockName"
-        ).innerText =
-            name || 股票 ${code};
-        document.getElementById(
-            "stockCode"
-        ).innerText =
-            股票代號：${code};
-        /*
-        | 技術資料
-        */
-        document.getElementById(
-            "close"
-        ).innerText =
-            formatNumber(close);
-        document.getElementById(
-            "ma20"
-        ).innerText =
-            formatNumber(ma20);
-        document.getElementById(
-            "monthHigh"
-        ).innerText =
-            formatNumber(monthHigh);
-        document.getElementById(
-            "monthLow"
-        ).innerText =
-            formatNumber(monthLow);
-        document.getElementById(
-            "monthClose"
-        ).innerText =
-            formatNumber(monthClose);
-        document.getElementById(
-            "rsi"
-        ).innerText =
-            formatNumber(rsi, 1);
-        /*
-        | 建倉區
-        */
-        let entryText = "-";
-        if (
-            typeof entry === "string" ||
-            typeof entry === "number"
-        ) {
-            entryText = entry;
-        }
-        else if (entry === true) {
-            entryText = "符合建倉條件";
-        }
-        document.getElementById(
-            "entryZone"
-        ).innerText =
-            entryText;
-        /*
-        | 月線價格區間
-        */
-        document.getElementById(
-            "rangeLow"
-        ).innerText =
-            formatNumber(monthLow);
-        document.getElementById(
-            "rangeHigh"
-        ).innerText =
-            formatNumber(monthHigh);
-        /*
-        | 訊號判斷
-        */
-        const signal =
-            document.getElementById("signal");
-        signal.className =
-            "signal";
-        const entryBoolean =
-            getField(
-                data,
-                [
-                    "entry",
-                    "進場"
-                ]
-            );
-        /*
-        | 優先使用 Worker 的 stage
-        */
-        if (
-            entryBoolean === true ||
-            stage === "建倉區"
-        ) {
-            signal.classList.add("green");
-            signal.innerText =
-                "🟢 符合條件｜目前位於建倉區";
-        }
-        else if (
-            stage === "觀察區" ||
-            stage === "觀察"
-        ) {
-            signal.classList.add("yellow");
-            signal.innerText =
-                "🟡 觀察等待";
-        }
-        else {
-            signal.classList.add("red");
-            signal.innerText =
-                "🔴 暫不進場";
-        }
-        /*
-        | 顯示結果
-        */
-        result.style.display = "block";
-    }
-    catch (err) {
-        console.error(err);
-        error.style.display = "block";
-        error.innerText =
-            "無法取得股票資料。請確認 Cloudflare Worker 是否正常運作，以及 API 是否允許 GitHub Pages 跨網域呼叫。";
-    }
-    finally {
-        loading.style.display = "none";
-        button.disabled = false;
-        button.innerText = "開始分析";
-    }
+
+function month(v){
+  const s=String(v??"");
+  return /^\d{6}$/.test(s)?`${s.slice(0,4)}/${s.slice(4,6)}`:(s||"-");
 }
-/*
-|--------------------------------------------------------------------------
-| Enter 鍵直接分析
-|--------------------------------------------------------------------------
-*/
-document
-    .getElementById("stockInput")
-    .addEventListener(
-        "keydown",
-        function(event) {
-            if (event.key === "Enter") {
-                analyzeStock();
-            }
-        }
-    );
-/*
-|--------------------------------------------------------------------------
-| 頁面開啟時自動分析 2330
-|--------------------------------------------------------------------------
-*/
-window.addEventListener(
-    "load",
-    function() {
-        analyzeStock();
+
+function datefmt(v){
+  return v?String(v).replaceAll("-","/"):"-";
+}
+
+function field(data,names){
+  for(const k of names){
+    if(data?.[k]!==undefined&&data?.[k]!==null)return data[k];
+  }
+  return null;
+}
+
+function set(id,text){
+  const el=document.getElementById(id);
+  if(el)el.textContent=text;
+}
+
+function esc(v){
+  return String(v??"")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+function renderDailyRsi(value){
+  const el=document.getElementById("rsiNote");
+  const r=n(value);
+  set("dailyRsi",r===null?"-":fmt(r,2));
+
+  if(r===null){
+    set("dailyRsiSub","目前 Worker 尚未回傳 dailyRsi5");
+    el.className="rsi-note normal";
+    el.textContent="日 RSI 尚未取得。";
+    return;
+  }
+
+  set("dailyRsiSub","日線 Wilder RSI，週期 5T");
+
+  if(r>=90){
+    el.className="rsi-note hot";
+    el.textContent=`⚠ 日 RSI ${fmt(r,2)} 已接近或超過 90，屬極高檔區；若同時接近倍數或 Fibonacci 目標，需特別注意高檔風險。`;
+  }else if(r>=80){
+    el.className="rsi-note warn";
+    el.textContent=`⚠ 日 RSI ${fmt(r,2)} 偏熱，股價若接近目標價可提高警覺。`;
+  }else if(r>=70){
+    el.className="rsi-note warn";
+    el.textContent=`日 RSI ${fmt(r,2)} 已進入相對高檔區，持續搭配目標倍數與 N 字目標觀察。`;
+  }else{
+    el.className="rsi-note normal";
+    el.textContent=`日 RSI ${fmt(r,2)}；RSI 僅作風險提醒，不單獨作為進出場訊號。`;
+  }
+}
+
+function renderTargets(entry,base,close,latestClose,latestMA){
+  const wrap=document.getElementById("targetWrap");
+  const no=document.getElementById("noTarget");
+  const b=n(base),c=n(close);
+
+  if(entry!==true||b===null||b<=0||c===null){
+    wrap.style.display="none";
+    no.style.display="block";
+    const lc=n(latestClose),ma=n(latestMA);
+
+    if(lc!==null&&ma!==null&&lc<ma){
+      no.textContent=`❌ 條件不符合，無法計算固定倍數目標價。現在月K收盤 ${fmt(lc)} < 20MA ${fmt(ma)}。等待月K重新站上20MA後，才建立新的起始月K與目標價。`;
+    }else{
+      no.textContent="❌ 目前沒有有效起始月K，因此無法計算固定倍數目標價。";
     }
-);
+    return;
+  }
+
+  no.style.display="none";
+  wrap.style.display="block";
+  set("targetBase",fmt(b));
+
+  const multiple=c/b;
+  set("currentMultiple",`${fmt(multiple,2)} ×`);
+
+  const targetData=TARGET_MULTIPLIERS.map(m=>({m,p:b*m}));
+  const next=targetData.find(t=>c<t.p)??null;
+
+  set(
+    "targetSummary",
+    next
+      ? `目前收盤 ${fmt(c)} 元，現價約 ${fmt(multiple,2)} 倍；下一個固定倍數目標為 ${next.m}× = ${fmt(next.p)} 元。`
+      : `目前收盤 ${fmt(c)} 元，已達或高於 10× 固定倍數目標。`
+  );
+
+  const box=document.getElementById("targets");
+  box.innerHTML="";
+
+  for(const t of targetData){
+    const div=document.createElement("div");
+    div.className="target";
+    const reached=c>=t.p;
+    const isNext=next&&next.m===t.m;
+
+    if(reached)div.classList.add("reached");
+    if(isNext)div.classList.add("next");
+
+    const trophy=(t.m===3||t.m===10)?" 🏆":"";
+    div.innerHTML=`<div class="m">× ${t.m}${trophy}</div><div class="p">${fmt(t.p)}</div>${reached?'<span class="badge">已達</span>':isNext?'<span class="badge">下一目標</span>':''}`;
+    box.appendChild(div);
+  }
+}
+
+function fibStatusInfo(status){
+  switch(status){
+    case "forming":
+      return {text:"🟡 形成中",cls:"fib-status forming"};
+    case "confirmed":
+      return {text:"🟢 已確認",cls:"fib-status confirmed"};
+    default:
+      return {text:"⚪ 尚未形成",cls:"fib-status not-formed"};
+  }
+}
+
+function renderHistoryCard(id,type,data){
+  const el=document.getElementById(id);
+  if(!data){
+    el.classList.remove("show");
+    el.innerHTML="";
+    return false;
+  }
+
+  const title=type==="invalidated"?"🟡 最近失效候選":type==="failed"?"🔴 上一組失敗 N 字":"🟢 上一組已完成 N 字";
+  const A=fmt(data.A),B=fmt(data.B),C=fmt(data.C);
+  const dates=`A ${datefmt(data.ADate)}｜B ${datefmt(data.BDate)}｜C ${datefmt(data.CDate)}`;
+  let extra="";
+
+  if(type==="invalidated"){
+    extra=`
+      <div class="history-row"><strong>失效日：</strong>${esc(datefmt(data.date))}｜價格 ${esc(fmt(data.price))}</div>
+      <div class="history-row"><strong>原因：</strong>${esc(data.reason||"-")}</div>`;
+  }else if(type==="failed"){
+    extra=`
+      <div class="history-row"><strong>突破：</strong>${esc(datefmt(data.breakoutDate))}｜Close ${esc(fmt(data.breakoutClose))}</div>
+      <div class="history-row"><strong>0.764：</strong>${esc(fmt(data.stop764))}｜<strong>1.618：</strong>${esc(fmt(data.target1618))}</div>
+      <div class="history-row"><strong>失敗日：</strong>${esc(datefmt(data.failedDate))}｜Close ${esc(fmt(data.failedClose))}｜Low ${esc(fmt(data.failedLow))}</div>
+      <div class="history-row"><strong>原因：</strong>${esc(data.reason||"-")}</div>`;
+  }else{
+    extra=`
+      <div class="history-row"><strong>突破：</strong>${esc(datefmt(data.breakoutDate))}｜Close ${esc(fmt(data.breakoutClose))}</div>
+      <div class="history-row"><strong>1.618：</strong>${esc(fmt(data.target1618))}</div>
+      <div class="history-row"><strong>完成日：</strong>${esc(datefmt(data.completedDate))}｜High ${esc(fmt(data.completedHigh))}</div>`;
+  }
+
+  el.innerHTML=`
+    <h3>${title}</h3>
+    <div class="history-row"><strong>A / B / C：</strong>${esc(A)} / ${esc(B)} / ${esc(C)}</div>
+    <div class="history-row">${esc(dates)}</div>
+    ${extra}
+  `;
+  el.classList.add("show");
+  return true;
+}
+
+function renderFib(fib,close){
+  fib=fib||{};
+  const status=fib.status||"not_formed";
+  const info=fibStatusInfo(status);
+  const statusEl=document.getElementById("fibStatus");
+  statusEl.className=info.cls;
+  statusEl.textContent=info.text;
+
+  set("fibMessage",fib.message||"目前沒有 N 字分析資料。");
+  set("fibAlgorithm",fib.algorithm?.name?`演算法：${fib.algorithm.name}`:"演算法：-");
+
+  set("fibA",fmt(fib.A));
+  set("fibADate",fib.ADate?datefmt(fib.ADate):"尚未形成");
+  set("fibB",fmt(fib.B));
+  set("fibBDate",fib.BDate?datefmt(fib.BDate):"尚未形成");
+  set("fibC",fmt(fib.C));
+  set("fibCDate",fib.CDate?datefmt(fib.CDate):"尚未形成");
+  set("fibAB",fmt(fib.AB));
+
+  const retraceDepth=n(fib.retraceDepthPct);
+  set("fibRetraceDepth",retraceDepth===null?"等待完整 A→B→C":`回撤深度 ${fmt(retraceDepth,2)}%`);
+
+  const levels=document.getElementById("fibLevels");
+  const metrics=document.getElementById("fibMetrics");
+  const alert=document.getElementById("fibAlert");
+
+  if((status==="forming"||status==="confirmed")&&fib.retracement&&fib.extension){
+    levels.style.display="block";
+
+    set("ret382",fmt(fib.retracement["0.382"]));
+    set("ret500",fmt(fib.retracement["0.500"]));
+    set("ret618",fmt(fib.retracement["0.618"]));
+    set("ret764",fmt(fib.retracement["0.764"]));
+    set("ext1000",fmt(fib.extension["1.000"]));
+    set("ext1272",fmt(fib.extension["1.272"]));
+    set("ext1382",fmt(fib.extension["1.382"]));
+    set("ext1618",fmt(fib.extension["1.618"]));
+    set("ext2000",fmt(fib.extension["2.000"]));
+    set("ext2618",fmt(fib.extension["2.618"]));
+    set("target1618Label",status==="confirmed"?"1.618 已確認主目標":"1.618 預估／未確認");
+
+    if(fib.metrics){
+      metrics.style.display="block";
+      set("distanceSupport",pct(fib.metrics.distanceToSupport618Pct));
+      set("distanceTarget",pct(fib.metrics.distanceToTarget1618Pct));
+      set("fibRisk",fmt(fib.metrics.risk));
+      set("fibRR",fib.metrics.riskReward||"-");
+    }else{
+      metrics.style.display="none";
+    }
+
+    const dist=n(fib.metrics?.distanceToTarget1618Pct);
+    const rr=n(fib.metrics?.riskRewardRatio);
+
+    if(status==="forming"){
+      alert.className="fib-alert info";
+      alert.textContent=`🟡 N字已形成，但尚未出現完成日K收盤價 > B 的突破確認；1.618 = ${fmt(fib.target1618)} 元目前只屬預估目標。`;
+    }else if(status==="confirmed"&&dist!==null&&dist<=5){
+      alert.className=rr!==null&&rr<1?"fib-alert hot":"fib-alert warn";
+      alert.textContent=`🎯 N字已確認，距離 1.618 主目標僅 ${fmt(dist,2)}%。${rr!==null?`目前剩餘風險報酬 ${fib.metrics?.riskReward||"-"}。`:""}`;
+    }else if(status==="confirmed"&&rr!==null&&rr<1){
+      alert.className="fib-alert warn";
+      alert.textContent=`⚠ N字仍為已確認，但以目前價計算的剩餘風險報酬為 ${fib.metrics?.riskReward||"-"}，代表目前價位相對接近目標或風險較高。`;
+    }else if(status==="confirmed"){
+      alert.className="fib-alert info";
+      alert.textContent=`🟢 N字突破已確認；1.618 主目標 ${fmt(fib.target1618)} 元尚未完成。`;
+    }else{
+      alert.className="fib-alert";
+      alert.textContent="";
+    }
+  }else{
+    levels.style.display="none";
+    metrics.style.display="none";
+    alert.className="fib-alert info";
+
+    if(fib.A!==null&&fib.A!==undefined&&fib.B!==null&&fib.B!==undefined){
+      alert.textContent=`目前已有有效 A → B（${fmt(fib.A)} → ${fmt(fib.B)}），但 C 尚未形成，因此不產生 0.618、0.764 與 1.618 目標。`;
+    }else{
+      alert.textContent="目前沒有新的完整有效 N 字；這不代表月線條件一定失效，請分開查看上方月線狀態。";
+    }
+  }
+
+  const hasInvalidated=renderHistoryCard("historyInvalidated","invalidated",fib.lastInvalidation);
+  const hasFailed=renderHistoryCard("historyFailed","failed",fib.lastFailedFib);
+  const hasCompleted=renderHistoryCard("historyCompleted","completed",fib.lastCompletedFib);
+  document.getElementById("emptyHistory").style.display=(hasInvalidated||hasFailed||hasCompleted)?"none":"block";
+}
+
+function buildFibReportLines(fib){
+  const lines=[];
+  if(!fib)return lines;
+
+  const statusMap={
+    not_formed:"尚未形成",
+    forming:"形成中",
+    confirmed:"已確認"
+  };
+
+  lines.push("【N字 Fibonacci】");
+  lines.push(`目前狀態：${statusMap[fib.status]||fib.status||"-"}`);
+  lines.push(`說明：${fib.message||"-"}`);
+
+  if(fib.A!==null&&fib.A!==undefined)lines.push(`A：${fmt(fib.A)} 元（${datefmt(fib.ADate)}）`);
+  if(fib.B!==null&&fib.B!==undefined)lines.push(`B：${fmt(fib.B)} 元（${datefmt(fib.BDate)}）`);
+  if(fib.C!==null&&fib.C!==undefined)lines.push(`C：${fmt(fib.C)} 元（${datefmt(fib.CDate)}）`);
+  if(fib.AB!==null&&fib.AB!==undefined)lines.push(`AB：${fmt(fib.AB)} 元`);
+  if(fib.retraceDepthPct!==null&&fib.retraceDepthPct!==undefined)lines.push(`回撤深度：${fmt(fib.retraceDepthPct,2)}%`);
+
+  if(fib.retracement&&fib.extension){
+    lines.push(`0.618 支撐：${fmt(fib.support618)} 元`);
+    lines.push(`0.764 風控：${fmt(fib.stop764)} 元`);
+    lines.push(`1.618 ${fib.status==="confirmed"?"已確認主目標":"預估目標"}：${fmt(fib.target1618)} 元`);
+
+    if(fib.metrics){
+      lines.push(`距離 0.618：${pct(fib.metrics.distanceToSupport618Pct)}`);
+      lines.push(`距離 1.618：${pct(fib.metrics.distanceToTarget1618Pct)}`);
+      lines.push(`目前風險：${fmt(fib.metrics.risk)} 元`);
+      lines.push(`潛在報酬：${fmt(fib.metrics.potentialReward)} 元`);
+      lines.push(`風險報酬：${fib.metrics.riskReward||"-"}`);
+    }
+  }
+
+  if(fib.lastInvalidation){
+    lines.push("");
+    lines.push("【最近失效候選】");
+    lines.push(`A/B/C：${fmt(fib.lastInvalidation.A)} / ${fmt(fib.lastInvalidation.B)} / ${fmt(fib.lastInvalidation.C)}`);
+    lines.push(`失效日：${datefmt(fib.lastInvalidation.date)}｜價格 ${fmt(fib.lastInvalidation.price)}`);
+    lines.push(`原因：${fib.lastInvalidation.reason||"-"}`);
+  }
+
+  if(fib.lastFailedFib){
+    const x=fib.lastFailedFib;
+    lines.push("");
+    lines.push("【上一組失敗 N 字】");
+    lines.push(`A/B/C：${fmt(x.A)} / ${fmt(x.B)} / ${fmt(x.C)}`);
+    lines.push(`突破日：${datefmt(x.breakoutDate)}｜Close ${fmt(x.breakoutClose)}`);
+    lines.push(`0.764：${fmt(x.stop764)}｜1.618：${fmt(x.target1618)}`);
+    lines.push(`失敗日：${datefmt(x.failedDate)}｜Close ${fmt(x.failedClose)}｜Low ${fmt(x.failedLow)}`);
+    lines.push(`原因：${x.reason||"-"}`);
+  }
+
+  if(fib.lastCompletedFib){
+    const x=fib.lastCompletedFib;
+    lines.push("");
+    lines.push("【上一組已完成 N 字】");
+    lines.push(`A/B/C：${fmt(x.A)} / ${fmt(x.B)} / ${fmt(x.C)}`);
+    lines.push(`突破日：${datefmt(x.breakoutDate)}｜Close ${fmt(x.breakoutClose)}`);
+    lines.push(`1.618：${fmt(x.target1618)}`);
+    lines.push(`完成日：${datefmt(x.completedDate)}｜High ${fmt(x.completedHigh)}`);
+  }
+
+  return lines;
+}
+
+function buildReportText(report){
+  if(!report)return "";
+
+  const {
+    name,code,market,source,version,close,closeDate,entry,stage,startMonth,startClose,startHigh,startLow,
+    base,latestMonthClose,latestMA,dailyRsi,breakMonth,breakClose,breakMA,fib
+  }=report;
+
+  const lines=[];
+  lines.push("【石頭少爺 Agent｜月線波段＋N字 Fibonacci 分析報告】");
+  lines.push("");
+  lines.push(`股票：${name}（${code}）`);
+  lines.push(`市場：${market}`);
+  lines.push(`資料來源：${source}`);
+  lines.push(`最新交易日：${datefmt(closeDate)}`);
+  lines.push(`月線狀態：${entry===true?"✅ 符合條件，可計算固定倍數目標":"❌ 條件不符合，不計算固定倍數目標"}`);
+  if(stage)lines.push(`目前階段：${stage}`);
+
+  lines.push("");
+  lines.push("【基本資料與條件】");
+  lines.push(`今日最新收盤價：${fmt(close)} 元`);
+  lines.push(`目前月K收盤：${fmt(latestMonthClose)} 元`);
+  lines.push(`目前月線20MA：${fmt(latestMA)} 元`);
+  lines.push(`起始月份：${month(startMonth)}`);
+  lines.push(`起始月收盤：${fmt(startClose)} 元`);
+  lines.push(`日 RSI 5T：${dailyRsi===null||dailyRsi===undefined?"尚未取得":fmt(dailyRsi,2)}`);
+
+  lines.push("");
+  lines.push("【起始月K高低點與倍數基準】");
+  lines.push(`起始月最高：${fmt(startHigh)} 元`);
+  lines.push(`起始月最低：${fmt(startLow)} 元`);
+  lines.push(`基準價：(最高＋最低) ÷ 2 = ${fmt(base)} 元`);
+
+  const b=n(base),c=n(close);
+
+  if(entry===true&&b!==null&&b>0&&c!==null){
+    const multiple=c/b;
+    const targetData=TARGET_MULTIPLIERS.map(m=>({m,p:b*m}));
+    const next=targetData.find(t=>c<t.p)??null;
+
+    lines.push("");
+    lines.push("【固定倍數目標價】");
+    lines.push(`現價倍數：${fmt(multiple,2)} 倍`);
+    lines.push(next?`下一個目標：${next.m}× = ${fmt(next.p)} 元`:"下一個目標：已達或高於 10× 目標");
+
+    for(const t of targetData){
+      const reached=c>=t.p;
+      const isNext=next&&next.m===t.m;
+      const trophy=(t.m===3||t.m===10)?" 🏆":"";
+      const mark=reached?"【已達】":isNext?"【下一目標】":"";
+      lines.push(`${t.m}×：${fmt(t.p)} 元${trophy}${mark}`);
+    }
+  }else{
+    lines.push("");
+    lines.push("【固定倍數目標價】");
+    lines.push("❌ 月線條件不符合，目前不計算 3×～10× 固定倍數目標價。");
+  }
+
+  lines.push("");
+  lines.push("【月線區段判斷】");
+  if(breakMonth){
+    lines.push(`上一個跌破月份：${month(breakMonth)}`);
+    lines.push(`收盤 ${fmt(breakClose)} 元 < 20MA ${fmt(breakMA)} 元`);
+  }else{
+    lines.push("目前判斷區間內沒有可顯示的上一個跌破月份。");
+  }
+
+  if(n(dailyRsi)!==null){
+    const r=n(dailyRsi);
+    lines.push("");
+    lines.push("【日 RSI 提醒】");
+    if(r>=90)lines.push(`⚠ 日 RSI ${fmt(r,2)} 已接近或超過90，屬極高檔區。`);
+    else if(r>=80)lines.push(`⚠ 日 RSI ${fmt(r,2)} 偏熱。`);
+    else if(r>=70)lines.push(`日 RSI ${fmt(r,2)} 已進入相對高檔區。`);
+    else lines.push(`日 RSI ${fmt(r,2)}；RSI 僅作風險提醒。`);
+  }
+
+  lines.push("");
+  lines.push(...buildFibReportLines(fib));
+
+  lines.push("");
+  lines.push("月線與 N 字 Fibonacci 為兩套不同判斷，不應混成單一買賣訊號。");
+  lines.push(`Worker版本：${version}`);
+  lines.push(`Fibonacci演算法：${fib?.algorithm?.name||"-"}`);
+  lines.push("技術分析僅供研究與決策參考，不構成投資建議。");
+
+  return lines.join("\n");
+}
+
+async function copyReport(){
+  const message=document.getElementById("copyMessage");
+  const button=document.getElementById("copyReportButton");
+
+  if(!lastReportData){
+    message.style.color="var(--red)";
+    message.textContent="尚未有分析結果，請先輸入股票代號並按「開始分析」。";
+    return;
+  }
+
+  const text=buildReportText(lastReportData);
+  if(!text)return;
+
+  button.disabled=true;
+  const original=button.textContent;
+
+  try{
+    if(navigator.clipboard&&window.isSecureContext){
+      await navigator.clipboard.writeText(text);
+    }else{
+      const textarea=document.createElement("textarea");
+      textarea.value=text;
+      textarea.setAttribute("readonly","");
+      textarea.style.position="fixed";
+      textarea.style.left="-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok=document.execCommand("copy");
+      document.body.removeChild(textarea);
+      if(!ok)throw new Error("瀏覽器不允許自動複製");
+    }
+
+    message.style.color="var(--green)";
+    message.textContent="✅ 分析報告已複製到剪貼簿。";
+    button.textContent="✅ 已複製";
+  }catch(err){
+    console.error(err);
+    message.style.color="var(--red)";
+    message.textContent="❌ 複製失敗，請確認瀏覽器已允許剪貼簿權限。";
+    button.textContent="複製失敗";
+  }finally{
+    setTimeout(()=>{
+      button.disabled=false;
+      button.textContent=original;
+    },1200);
+  }
+}
+
+async function analyzeStock(){
+  const input=document.getElementById("stockInput");
+  const button=document.getElementById("searchButton");
+  const loading=document.getElementById("loading");
+  const error=document.getElementById("error");
+  const result=document.getElementById("result");
+  const stock=input.value.trim();
+
+  if(!/^\d{4,6}$/.test(stock)){
+    error.style.display="block";
+    error.textContent="請輸入正確股票代號，例如 8039。";
+    result.style.display="none";
+    return;
+  }
+
+  error.style.display="none";
+  result.style.display="none";
+  loading.style.display="block";
+  button.disabled=true;
+  button.textContent="分析中...";
+  lastReportData=null;
+  set("copyMessage","");
+
+  try{
+    const response=await fetch(`${API_BASE_URL}/?stock=${encodeURIComponent(stock)}`,{
+      headers:{Accept:"application/json"},
+      cache:"no-store"
+    });
+
+    let data;
+    try{
+      data=await response.json();
+    }catch{
+      throw new Error(`API 回傳不是有效 JSON（HTTP ${response.status}）`);
+    }
+
+    if(!response.ok){
+      throw new Error(data?.error||data?.message||`HTTP ${response.status}`);
+    }
+
+    const name=field(data,["name","stockName"])||`股票 ${stock}`;
+    const code=field(data,["stock","code"])||stock;
+    const market=field(data,["market"])||"-";
+    const source=field(data,["source"])||"-";
+    const version=field(data,["version"])||"-";
+    const close=field(data,["close"]);
+    const closeDate=field(data,["closeDate"]);
+    const entry=field(data,["entry"]);
+    const stage=field(data,["stage"]);
+    const startMonth=field(data,["startMonth","qualifyingMonth"]);
+    const startClose=field(data,["startMonthClose","monthlyClose"]);
+    const startHigh=field(data,["startMonthHigh","monthlyHigh"]);
+    const startLow=field(data,["startMonthLow","monthlyLow"]);
+    const baseApi=field(data,["baseValue"]);
+    // 固定倍數基準嚴格依規格：(起始月最高＋最低) ÷ 2。
+    // 優先用原始 high/low 重算，避免 Worker JSON 兩位小數顯示造成 x.xx5 邊界誤差。
+    const base=(n(startHigh)!==null&&n(startLow)!==null)
+      ? (n(startHigh)+n(startLow))/2
+      : n(baseApi);
+    const latestMonthClose=field(data,["latestMonthClose"]);
+    const latestMA=field(data,["latestMonthMA20"]);
+    const dailyRsi=field(data,["dailyRsi5","dailyRsi"]);
+    const breakMonth=field(data,["previousBreakMonth"]);
+    const breakClose=field(data,["previousBreakClose"]);
+    const breakMA=field(data,["previousBreakMA20"]);
+    const fib=data?.fib||null;
+
+    lastReportData={
+      name,code,market,source,version,close,closeDate,entry,stage,startMonth,startClose,startHigh,startLow,
+      base,latestMonthClose,latestMA,dailyRsi,breakMonth,breakClose,breakMA,fib
+    };
+
+    set("stockName",name);
+    set("stockMeta",`${code}｜${market}｜${source}｜Worker ${version}`);
+    set("closeDate",`最新交易日：${datefmt(closeDate)}`);
+
+    const status=document.getElementById("status");
+    if(entry===true){
+      status.className="status ok";
+      status.textContent=`✅ 月線符合條件｜${stage||"有效區段"}｜可計算固定倍數目標價`;
+    }else{
+      status.className="status no";
+      status.textContent="❌ 月線條件不符合｜目前不計算固定倍數目標價";
+    }
+
+    set("close",fmt(close));
+    set("latestMonthClose",fmt(latestMonthClose));
+    set("latestMA20",fmt(latestMA));
+    set("startMonth",month(startMonth));
+    set("startClose",fmt(startClose));
+    renderDailyRsi(dailyRsi);
+    set("startHigh",fmt(startHigh));
+    set("startLow",fmt(startLow));
+    set("baseValue",fmt(base));
+
+    renderTargets(entry,base,close,latestMonthClose,latestMA);
+
+    if(breakMonth){
+      set("previousBreak",`上一個跌破月份：${month(breakMonth)}｜收盤 ${fmt(breakClose)} < 20MA ${fmt(breakMA)}`);
+    }else{
+      set("previousBreak","目前判斷區間內沒有可顯示的上一個跌破月份。");
+    }
+
+    renderFib(fib,close);
+    result.style.display="block";
+
+    setTimeout(()=>{
+      result.scrollIntoView({behavior:"smooth",block:"start"});
+    },50);
+  }catch(err){
+    console.error(err);
+    error.style.display="block";
+    error.textContent=`無法取得股票資料：${err.message}`;
+  }finally{
+    loading.style.display="none";
+    button.disabled=false;
+    button.textContent="開始分析";
+  }
+}
+
+document.getElementById("stockInput").addEventListener("keydown",e=>{
+  if(e.key==="Enter")analyzeStock();
+});
 </script>
 </body>
 </html>
