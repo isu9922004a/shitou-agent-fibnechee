@@ -202,18 +202,19 @@ body{
   <div class="container">
     <h1>⏳傑克.石頭Agent</h1>
     <p>月線波段條件判斷＋固定倍數目標價＋費波那契 N字分析</p>
-    <span class="version-pill">前端 V3.0.3｜中文新手版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
+    <span class="version-pill">前端 V3.1｜繁中名稱搜尋版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
   </div>
 </header>
 
 <main class="container">
   <section class="panel">
-    <div class="section-title">🔎 輸入股票代號</div>
+    <div class="section-title">🔎 輸入股票代號或中文名稱</div>
     <div class="search-row">
-      <input id="stockInput" class="stock-input" inputmode="numeric" maxlength="6" placeholder="例如：8039" value="8039">
+      <input id="stockInput" class="stock-input" inputmode="search" maxlength="30" list="stockSuggestions" autocomplete="off" placeholder="例如：8039、台虹、4939、亞電" value="8039">
+      <datalist id="stockSuggestions"></datalist>
       <button id="searchButton" class="btn" type="button" onclick="analyzeStock()">開始分析</button>
     </div>
-    <div class="hint">本頁使用 Worker V2.8.2 定版：月線 33 個月邏輯、固定 3×～10× 目標價、戰術 N 字前三高突破與 費波那契第2.4版核心並行；戰術突破與 Fib B 確認分開解讀。</div>
+    <div class="hint">可輸入股票代號或繁體中文股票名稱，例如「8039」「台虹」「4939」「亞電」。股票名稱優先使用證交所／櫃買中心官方中文簡稱；後端若回傳英文名稱，報告也會優先改用官方繁體中文名稱。</div>
     <div id="loading" class="loading">⏳ 正在取得股票資料並分析...</div>
     <div id="error" class="error"></div>
   </section>
@@ -361,19 +362,30 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.0.3 中文新手版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.1 繁中名稱搜尋版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.0.3-rsi5t-ma20-restored";
+const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.1-tw-stock-name-search";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
-// Yahoo Finance 的 TPEx 名稱有時回傳英文；僅影響前端顯示，不影響計算。
+// 股票中文名稱：
+// 1) 優先即時載入 TWSE／TPEx 官方公開資料建立代號↔繁中名稱索引。
+// 2) LOCAL_NAME_MAP 僅作官方清單暫時無法連線時的少量備援。
+const TWSE_STOCK_DIRECTORY_URL="https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
+const TPEX_STOCK_DIRECTORY_URL="https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes";
+const STOCK_DIRECTORY_CACHE_KEY="shitou-agent-tw-stock-directory-v1";
+const STOCK_DIRECTORY_CACHE_MS=12*60*60*1000;
+
 const LOCAL_NAME_MAP={
+  "4939":"亞電",
   "5483":"中美晶",
-  "4561":"健椿"
+  "4561":"健椿",
+  "8039":"台虹",
+  "8112":"至上"
 };
 
+let stockDirectoryPromise=null;
 let lastReportData=null;
 
 function n(v){
@@ -441,6 +453,243 @@ function field(data,names){
 function set(id,text){
   const el=document.getElementById(id);
   if(el)el.textContent=text;
+}
+
+
+function normalizeStockSearchText(value){
+  return String(value??"")
+    .trim()
+    .replace(/[\s　]+/g,"")
+    .replace(/[()（）]/g,"")
+    .toUpperCase();
+}
+
+function hasCjkText(value){
+  return /[\u3400-\u9fff]/.test(String(value??""));
+}
+
+function parseStockCodeFromMixedInput(value){
+  const raw=String(value??"").trim();
+  if(/^\d{4,6}$/.test(raw))return raw;
+
+  // 支援 datalist 格式「亞電｜4939」，也支援「亞電 4939」「亞電（4939）」。
+  const m=raw.match(/(?:^|[｜|\s（(])([0-9]{4,6})(?:[）)]|$)/);
+  return m?m[1]:null;
+}
+
+function buildStockDirectory(twseRows,tpexRows){
+  const byCode={};
+  const records=[];
+
+  function addRecord(code,name,market){
+    const c=String(code??"").trim();
+    const nm=String(name??"").trim();
+    if(!/^\d{4,6}$/.test(c)||!nm)return;
+
+    const record={code:c,name:nm,market};
+    if(!byCode[c]){
+      byCode[c]=record;
+      records.push(record);
+    }else if(!hasCjkText(byCode[c].name)&&hasCjkText(nm)){
+      byCode[c]=record;
+      const idx=records.findIndex(x=>x.code===c);
+      if(idx>=0)records[idx]=record;
+    }
+  }
+
+  for(const row of Array.isArray(twseRows)?twseRows:[]){
+    addRecord(row?.Code,row?.Name,"TWSE");
+  }
+
+  for(const row of Array.isArray(tpexRows)?tpexRows:[]){
+    addRecord(
+      row?.SecuritiesCompanyCode ?? row?.Code ?? row?.SecuritiesCode,
+      row?.CompanyName ?? row?.Name ?? row?.SecuritiesCompanyName,
+      "TPEx"
+    );
+  }
+
+  // 備援名稱只補缺漏，不覆蓋官方資料。
+  for(const [code,name] of Object.entries(LOCAL_NAME_MAP)){
+    if(!byCode[code])addRecord(code,name,"fallback");
+  }
+
+  records.sort((a,b)=>a.code.localeCompare(b.code,"zh-TW",{numeric:true}));
+  return {
+    byCode,
+    records,
+    source:records.length>Object.keys(LOCAL_NAME_MAP).length?"official":"fallback"
+  };
+}
+
+function readStockDirectoryCache(){
+  try{
+    const raw=localStorage.getItem(STOCK_DIRECTORY_CACHE_KEY);
+    if(!raw)return null;
+    const cached=JSON.parse(raw);
+    if(!cached?.savedAt||Date.now()-cached.savedAt>STOCK_DIRECTORY_CACHE_MS)return null;
+    if(!Array.isArray(cached.records)||cached.records.length<10)return null;
+
+    const byCode={};
+    for(const r of cached.records){
+      if(r?.code&&r?.name){
+        byCode[String(r.code)]={
+          code:String(r.code),
+          name:String(r.name),
+          market:r.market||"-"
+        };
+      }
+    }
+    return {byCode,records:cached.records,source:"cache"};
+  }catch{
+    return null;
+  }
+}
+
+function writeStockDirectoryCache(directory){
+  try{
+    if(!directory?.records?.length)return;
+    localStorage.setItem(
+      STOCK_DIRECTORY_CACHE_KEY,
+      JSON.stringify({savedAt:Date.now(),records:directory.records})
+    );
+  }catch{
+    // 瀏覽器不允許 localStorage 時，只是不快取，不影響查詢。
+  }
+}
+
+async function fetchJsonForDirectory(url){
+  const response=await fetch(url,{
+    headers:{Accept:"application/json"},
+    cache:"no-store"
+  });
+  if(!response.ok)throw new Error(`HTTP ${response.status}`);
+  const data=await response.json();
+  if(!Array.isArray(data))throw new Error("股票清單格式錯誤");
+  return data;
+}
+
+async function loadStockDirectory(){
+  if(stockDirectoryPromise)return stockDirectoryPromise;
+
+  stockDirectoryPromise=(async()=>{
+    const cached=readStockDirectoryCache();
+    if(cached){
+      populateStockSuggestions(cached);
+      return cached;
+    }
+
+    const [twseResult,tpexResult]=await Promise.allSettled([
+      fetchJsonForDirectory(TWSE_STOCK_DIRECTORY_URL),
+      fetchJsonForDirectory(TPEX_STOCK_DIRECTORY_URL)
+    ]);
+
+    const twseRows=twseResult.status==="fulfilled"?twseResult.value:[];
+    const tpexRows=tpexResult.status==="fulfilled"?tpexResult.value:[];
+    const directory=buildStockDirectory(twseRows,tpexRows);
+
+    if(directory.source!=="fallback")writeStockDirectoryCache(directory);
+    populateStockSuggestions(directory);
+    return directory;
+  })().catch(err=>{
+    console.warn("股票中文名稱清單載入失敗：",err);
+    const directory=buildStockDirectory([],[]);
+    populateStockSuggestions(directory);
+    return directory;
+  });
+
+  return stockDirectoryPromise;
+}
+
+function populateStockSuggestions(directory){
+  const list=document.getElementById("stockSuggestions");
+  if(!list||!directory?.records||list.dataset.loaded==="1")return;
+
+  const frag=document.createDocumentFragment();
+  for(const r of directory.records){
+    const option=document.createElement("option");
+    option.value=`${r.name}｜${r.code}`;
+    option.label=`${r.code} ${r.name}`;
+    frag.appendChild(option);
+  }
+  list.appendChild(frag);
+  list.dataset.loaded="1";
+}
+
+function findStockByChineseName(raw,directory){
+  const q=normalizeStockSearchText(raw);
+  if(!q||!directory?.records?.length)return {match:null,candidates:[]};
+
+  const exact=directory.records.filter(r=>normalizeStockSearchText(r.name)===q);
+  if(exact.length===1)return {match:exact[0],candidates:exact};
+  if(exact.length>1)return {match:null,candidates:exact};
+
+  const starts=directory.records.filter(r=>normalizeStockSearchText(r.name).startsWith(q));
+  if(starts.length===1)return {match:starts[0],candidates:starts};
+
+  const contains=directory.records.filter(r=>normalizeStockSearchText(r.name).includes(q));
+  if(contains.length===1)return {match:contains[0],candidates:contains};
+
+  return {match:null,candidates:(starts.length?starts:contains).slice(0,8)};
+}
+
+async function resolveStockInput(raw){
+  const mixedCode=parseStockCodeFromMixedInput(raw);
+  const directory=await loadStockDirectory();
+
+  if(mixedCode){
+    return {
+      code:mixedCode,
+      officialName:directory.byCode?.[mixedCode]?.name||LOCAL_NAME_MAP[mixedCode]||null,
+      directory
+    };
+  }
+
+  const text=String(raw??"").trim();
+  if(!text){
+    throw new Error("請輸入股票代號或繁體中文股票名稱，例如 8039、台虹、4939、亞電。");
+  }
+
+  if(directory.source==="fallback"){
+    const fallbackMatches=Object.entries(LOCAL_NAME_MAP)
+      .filter(([,name])=>normalizeStockSearchText(name)===normalizeStockSearchText(text))
+      .map(([code,name])=>({code,name,market:"fallback"}));
+
+    if(fallbackMatches.length===1){
+      return {
+        code:fallbackMatches[0].code,
+        officialName:fallbackMatches[0].name,
+        directory
+      };
+    }
+
+    throw new Error("目前無法載入官方股票中文名稱清單，暫時請改用股票代號查詢。");
+  }
+
+  const found=findStockByChineseName(text,directory);
+  if(found.match){
+    return {
+      code:found.match.code,
+      officialName:found.match.name,
+      directory
+    };
+  }
+
+  if(found.candidates.length){
+    const choices=found.candidates.map(x=>`${x.name}（${x.code}）`).join("、");
+    throw new Error(`找到多筆相近股票：${choices}。請輸入更完整的股票名稱或直接輸入股票代號。`);
+  }
+
+  throw new Error(`找不到「${text}」對應的上市／上櫃股票，請確認繁體中文股票簡稱或改用股票代號。`);
+}
+
+function resolveTraditionalStockName(code,apiName,directory,preferredName){
+  const official=preferredName||directory?.byCode?.[code]?.name||LOCAL_NAME_MAP[code]||null;
+  if(official&&hasCjkText(official))return official;
+  if(apiName&&hasCjkText(apiName))return String(apiName).trim();
+
+  // 後端如果只回英文公司名，新手版不把英文名稱帶入報告。
+  return `股票 ${code}`;
 }
 
 function esc(v){
@@ -2875,11 +3124,11 @@ async function analyzeStock(){
   const loading=document.getElementById("loading");
   const error=document.getElementById("error");
   const result=document.getElementById("result");
-  const stock=input.value.trim();
+  const rawInput=input.value.trim();
 
-  if(!/^\d{4,6}$/.test(stock)){
+  if(!rawInput){
     error.style.display="block";
-    error.textContent="請輸入正確股票代號，例如 8039。";
+    error.textContent="請輸入股票代號或繁體中文股票名稱，例如 8039、台虹、4939、亞電。";
     result.style.display="none";
     return;
   }
@@ -2893,6 +3142,15 @@ async function analyzeStock(){
   set("copyMessage","");
 
   try{
+    const resolvedInput=await resolveStockInput(rawInput);
+    const stock=resolvedInput.code;
+    const directory=resolvedInput.directory;
+
+    // 查詢成功後統一顯示「繁中名稱｜代號」，方便確認標的。
+    input.value=resolvedInput.officialName
+      ?`${resolvedInput.officialName}｜${stock}`
+      :stock;
+
     const response=await fetch(`${API_BASE_URL}/?stock=${encodeURIComponent(stock)}`,{
       headers:{Accept:"application/json"},
       cache:"no-store"
@@ -2911,7 +3169,7 @@ async function analyzeStock(){
 
     const apiName=field(data,["name","stockName"]);
     const code=String(field(data,["stock","code"])||stock);
-    const name=LOCAL_NAME_MAP[code]||apiName||`股票 ${stock}`;
+    const name=resolveTraditionalStockName(code,apiName,directory,resolvedInput.officialName);
     const market=field(data,["market"])||"-";
     const source=field(data,["source"])||"-";
     const version=field(data,["version"])||"-";
@@ -2947,7 +3205,7 @@ async function analyzeStock(){
     };
 
     set("stockName",name);
-    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.0.3`);
+    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.1`);
     set("closeDate",`最新交易日：${datefmt(closeDate)}`);
 
     const status=document.getElementById("status");
@@ -2997,6 +3255,11 @@ async function analyzeStock(){
 document.getElementById("stockInput").addEventListener("keydown",e=>{
   if(e.key==="Enter")analyzeStock();
 });
+
+// 背景預載官方繁中名稱，輸入中文時可直接從候選清單選擇。
+setTimeout(()=>{
+  loadStockDirectory().catch(()=>{});
+},250);
 </script>
 </body>
 </html>
