@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>石頭少爺 Agent｜月線波段＋N字 Fibonacci</title>
+<title>石頭少爺 Agent｜月線波段＋費波那契 N字</title>
 <style>
 *{box-sizing:border-box}
 :root{
@@ -201,8 +201,8 @@ body{
 <header class="header">
   <div class="container">
     <h1>⏳傑克.石頭Agent</h1>
-    <p>月線波段條件判斷＋固定倍數目標價＋N字 Fibonacci 分析</p>
-    <span class="version-pill">前端 V3.0.1｜報告清晰化｜Worker V2.8.2｜Fib Core V2.4</span>
+    <p>月線波段條件判斷＋固定倍數目標價＋費波那契 N字分析</p>
+    <span class="version-pill">前端 V3.0.2｜全中文新手版｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
   </div>
 </header>
 
@@ -213,7 +213,7 @@ body{
       <input id="stockInput" class="stock-input" inputmode="numeric" maxlength="6" placeholder="例如：8039" value="8039">
       <button id="searchButton" class="btn" type="button" onclick="analyzeStock()">開始分析</button>
     </div>
-    <div class="hint">本頁使用 Worker V2.8.2 定版：月線 33 個月邏輯、固定 3×～10× 目標價、戰術 N 字前三高突破與 Fibonacci V2.4 核心並行；戰術突破與 Fib B 確認分開解讀。</div>
+    <div class="hint">本頁使用 Worker V2.8.2 定版：月線 33 個月邏輯、固定 3×～10× 目標價、戰術 N 字前三高突破與 費波那契第2.4版核心並行；戰術突破與 Fib B 確認分開解讀。</div>
     <div id="loading" class="loading">⏳ 正在取得股票資料並分析...</div>
     <div id="error" class="error"></div>
   </section>
@@ -274,7 +274,7 @@ body{
     </section>
 
     <section class="panel">
-      <div class="section-title">⑤ 📐 N字 Fibonacci 分析</div>
+      <div class="section-title">⑤ 📐 費波那契 N字分析</div>
       <div class="section-subtitle">N字與月線是兩套不同判斷。N字狀態只描述目前 Swing A→B→C 結構，不代表月線是否符合建倉條件。</div>
 
       <div class="fib-head">
@@ -285,17 +285,17 @@ body{
 
       <div class="fib-grid">
         <div class="fib-point">
-          <div class="point-name">A｜Swing Low 起漲點</div>
+          <div class="point-name">起漲點 A｜波段起點</div>
           <div id="fibA" class="point-price">-</div>
           <div id="fibADate" class="point-date">-</div>
         </div>
         <div class="fib-point">
-          <div class="point-name">B｜Swing High 波段高點</div>
+          <div class="point-name">波段高點 B｜前波高點</div>
           <div id="fibB" class="point-price">-</div>
           <div id="fibBDate" class="point-date">-</div>
         </div>
         <div class="fib-point">
-          <div class="point-name">C｜Swing Low 回檔低點</div>
+          <div class="point-name">回檔低點 C｜回測低點</div>
           <div id="fibC" class="point-price">-</div>
           <div id="fibCDate" class="point-date">-</div>
         </div>
@@ -347,12 +347,12 @@ body{
         </div>
       </div>
 
-      <div class="rule"><strong>雙突破規則：</strong>🔥 戰術 N 字以「完成日K收盤 &gt; 前三個完整交易日最高價」判定綠翻紅／N字突破；📐 Fibonacci V2.4 則在有效 C 形成後，以「完成日K收盤 &gt; Swing B」作為 Fib B 正式確認。兩個日期用途不同、不可混用；Fib 的 0.618／0.764／1.618 與 failed／completed 生命週期仍完全依 V2.4。</div>
+      <div class="rule"><strong>雙突破規則：</strong>🔥 戰術 N 字以「完成日K收盤 &gt; 前三個完整交易日最高價」判定綠翻紅／N字突破；📐 費波那契第2.4版 則在有效 C 形成後，以「完成日K收盤 &gt; 前波高點 B」作為 Fib B 正式確認。兩個日期用途不同、不可混用；費波那契的 0.618／0.764／1.618 與失敗／完成生命週期仍完全依 V2.4。</div>
     </section>
 
     <section class="panel">
       <div class="section-title">⑥ 一鍵複製分析報告</div>
-      <div class="hint">會整理月線、固定倍數、日 RSI、戰術盤態、🔥戰術 N 字突破、📐Fib B確認、量價、三日原則、回測／再攻、Fibonacci 價位與歷史 N 字紀錄。</div>
+      <div class="hint">會整理月線、固定倍數、日 RSI、戰術盤態、🔥戰術 N 字突破、📐費波那契前高確認、量價、三日原則、回測／再攻、費波那契價位與歷史 N 字紀錄。</div>
       <div class="copy-actions">
         <button id="copyReportButton" class="copy-btn" type="button" onclick="copyReport()">📋 一鍵複製報告</button>
       </div>
@@ -361,11 +361,11 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.0.1 報告清晰化版｜Worker V2.8.2／Fib Core V2.4<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.0.2 全中文新手版｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-18-report-v3.0.1-clarity-optimized";
+const FRONTEND_REPORT_VERSION="2026-08-18-report-v3.0.2-chinese-beginner";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
 // Yahoo Finance 的 TPEx 名稱有時回傳英文；僅影響前端顯示，不影響計算。
@@ -576,11 +576,11 @@ function renderHistoryCard(id,type,data){
     const fibClose=data.fibBreakoutClose??data.breakoutClose;
 
     const tacticalLine=tacticalDate
-      ?`<div class="history-row"><strong>🔥 N字突破：</strong>${esc(datefmt(tacticalDate))}｜Close ${esc(fmt(tacticalClose))}${n(tacticalNeckline)!==null?` &gt; 前三高 ${esc(fmt(tacticalNeckline))}`:""}</div>`
+      ?`<div class="history-row"><strong>🔥 N字突破：</strong>${esc(datefmt(tacticalDate))}｜收盤價 ${esc(fmt(tacticalClose))}${n(tacticalNeckline)!==null?` &gt; 前三高 ${esc(fmt(tacticalNeckline))}`:""}</div>`
       :"";
 
     const fibLine=fibDate
-      ?`<div class="history-row"><strong>📐 Fib B確認：</strong>${esc(datefmt(fibDate))}｜Close ${esc(fmt(fibClose))}${n(data.B)!==null?` &gt; B ${esc(fmt(data.B))}`:""}</div>`
+      ?`<div class="history-row"><strong>📐 費波那契前高確認：</strong>${esc(datefmt(fibDate))}｜Close ${esc(fmt(fibClose))}${n(data.B)!==null?` &gt; B ${esc(fmt(data.B))}`:""}</div>`
       :"";
 
     if(type==="failed"){
@@ -588,14 +588,14 @@ function renderHistoryCard(id,type,data){
         ${tacticalLine}
         ${fibLine}
         <div class="history-row"><strong>0.764：</strong>${esc(fmt(data.stop764))}｜<strong>1.618：</strong>${esc(fmt(data.target1618))}</div>
-        <div class="history-row"><strong>失敗日：</strong>${esc(datefmt(data.failedDate))}｜Close ${esc(fmt(data.failedClose))}｜Low ${esc(fmt(data.failedLow))}</div>
+        <div class="history-row"><strong>失敗日：</strong>${esc(datefmt(data.failedDate))}｜收盤價 ${esc(fmt(data.failedClose))}｜最低價 ${esc(fmt(data.failedLow))}</div>
         <div class="history-row"><strong>原因：</strong>${esc(data.reason||"-")}</div>`;
     }else{
       extra=`
         ${tacticalLine}
         ${fibLine}
         <div class="history-row"><strong>1.618：</strong>${esc(fmt(data.target1618))}</div>
-        <div class="history-row"><strong>完成日：</strong>${esc(datefmt(data.completedDate))}｜High ${esc(fmt(data.completedHigh))}</div>`;
+        <div class="history-row"><strong>完成日：</strong>${esc(datefmt(data.completedDate))}｜最高價 ${esc(fmt(data.completedHigh))}</div>`;
     }
   }
 
@@ -1544,7 +1544,7 @@ function buildCurrentFocusLines(report,fixed,rsiInfo,rrInfo){
   }
 
   if(fib?.breakoutDate){
-    lines.push(`📐 Fib B確認：${datefmt(fib.breakoutDate)}｜Close ${fmt(fib.breakoutClose)} > B ${fmt(fib.B)}`);
+    lines.push(`📐 費波那契前高確認：${datefmt(fib.breakoutDate)}｜Close ${fmt(fib.breakoutClose)} > B ${fmt(fib.B)}`);
 
     if(t.fibBreakoutVolume!==null){
       const vg=getVolumeGrade(t.fibBreakoutVolume);
@@ -1565,7 +1565,7 @@ function buildCurrentFocusLines(report,fixed,rsiInfo,rrInfo){
   }
 
   if(t.primaryType){
-    lines.push(`📌 目前主要突破事件：${t.primaryType==="fib"?"📐 Fib B確認":"🔥 戰術N字突破"}；通用量能／防守／三日欄位以這一層為準。`);
+    lines.push(`📌 目前主要突破事件：${t.primaryType==="fib"?"📐 費波那契前高確認":"🔥 戰術N字突破"}；通用量能／防守／三日欄位以這一層為準。`);
   }
 
   lines.push("");
@@ -1780,7 +1780,7 @@ function buildFibSectionLines(report){
   const bInfo=getBPositionInfo(fib,close);
 
   lines.push("━━━━━━━━━━━━━━━━━━");
-  lines.push("【⑤ N字 Fibonacci｜幾何結構】");
+  lines.push("【⑤ 費波那契 N字｜幾何結構】");
   lines.push("━━━━━━━━━━━━━━━━━━");
   lines.push("");
 
@@ -1966,7 +1966,7 @@ function buildHistorySectionLines(fib){
   lines.push("【⑦ 歷史 N字｜僅供回顧】");
   lines.push("━━━━━━━━━━━━━━━━━━");
   lines.push("");
-  lines.push("⚠️ 以下是已結束的舊結構，不是目前有效訊號；🔥戰術突破與📐Fib B確認是兩個不同事件。");
+  lines.push("⚠️ 以下是已結束的舊結構，不是目前有效訊號；🔥戰術突破與📐費波那契前高確認是兩個不同事件。");
 
   if(fib.lastInvalidation){
     const x=fib.lastInvalidation;
@@ -1992,7 +1992,7 @@ function buildHistorySectionLines(fib){
     const fibDate=x.fibBreakoutDate||x.breakoutDate;
     const fibClose=x.fibBreakoutClose??x.breakoutClose;
     if(fibDate){
-      lines.push(`📐 Fib B確認：${datefmt(fibDate)}｜Close ${fmt(fibClose)} 元${n(x.B)!==null?` > B ${fmt(x.B)} 元`:""}`);
+      lines.push(`📐 費波那契前高確認：${datefmt(fibDate)}｜Close ${fmt(fibClose)} 元${n(x.B)!==null?` > B ${fmt(x.B)} 元`:""}`);
     }
 
     lines.push(`🚨 0.764：${fmt(x.stop764)} 元｜🎯 1.618：${fmt(x.target1618)} 元`);
@@ -2014,7 +2014,7 @@ function buildHistorySectionLines(fib){
     const fibDate=x.fibBreakoutDate||x.breakoutDate;
     const fibClose=x.fibBreakoutClose??x.breakoutClose;
     if(fibDate){
-      lines.push(`📐 Fib B確認：${datefmt(fibDate)}｜Close ${fmt(fibClose)} 元${n(x.B)!==null?` > B ${fmt(x.B)} 元`:""}`);
+      lines.push(`📐 費波那契前高確認：${datefmt(fibDate)}｜Close ${fmt(fibClose)} 元${n(x.B)!==null?` > B ${fmt(x.B)} 元`:""}`);
     }
 
     lines.push(`🎯 1.618：${fmt(x.target1618)} 元`);
@@ -2077,7 +2077,7 @@ function buildTacticalSectionLines(report){
   }
 
   lines.push("");
-  lines.push("【📐 Fib B確認｜完整幾何結構確認】");
+  lines.push("【📐 費波那契前高確認｜完整幾何結構確認】");
 
   if(fib.breakoutDate){
     lines.push(`${datefmt(fib.breakoutDate)}｜Close ${fmt(fib.breakoutClose)} 元 > B ${fmt(fib.B)} 元`);
@@ -2261,8 +2261,8 @@ function buildBeginnerQuestionsLines(report,rsiInfo,rrInfo){
   lines.push("━━━━━━━━━━━━━━━━━━");
   lines.push("");
 
-  lines.push("❓ Q1：🔥N字突破與📐Fib B確認，為什麼日期可能不同？");
-  lines.push("因為是兩套不同規則。🔥戰術N字用「完成日K收盤 > 前三高」描述較早的綠翻紅；📐Fib B確認則必須先有有效C，再以「完成日K收盤 > Swing B」確認幾何N字。不能把兩個日期混成同一個突破日。");
+  lines.push("❓ Q1：🔥N字突破與📐費波那契前高確認，為什麼日期可能不同？");
+  lines.push("因為是兩套不同規則。🔥戰術N字用「完成日K收盤 > 前三高」描述較早的綠翻紅；📐費波那契前高確認則必須先有有效C，再以「完成日K收盤 > 前波高點 B」確認幾何N字。不能把兩個日期混成同一個突破日。");
   lines.push("");
 
   if(fib.status==="confirmed"){
@@ -2338,7 +2338,7 @@ function buildMarketBehaviorLines(report,fixed,rsiInfo,rrInfo){
   }
 
   if(fib.breakoutDate){
-    lines.push(`📐 Fib B確認：${datefmt(fib.breakoutDate)}｜Close ${fmt(fib.breakoutClose)} > B ${fmt(fib.B)}`);
+    lines.push(`📐 費波那契前高確認：${datefmt(fib.breakoutDate)}｜Close ${fmt(fib.breakoutClose)} > B ${fmt(fib.B)}`);
     if(t.fibBreakoutVolume!==null){
       const vg=getVolumeGrade(t.fibBreakoutVolume);
       lines.push(`📊 Fib B確認日量：${fmt(t.fibBreakoutVolume,2)} 倍｜${vg.label}`);
@@ -2516,6 +2516,199 @@ function buildBeginnerThreeSentenceLines(report,fixed,rsiInfo,rrInfo){
   return lines;
 }
 
+function localizeBeginnerReportText(text){
+  let out=String(text||"");
+
+  // 系統資訊改成新手看得懂的版本名稱，不直接暴露程式內部英文代號。
+  out=out.replace(/^前端報告版本：.*$/gm,"前端報告版本：第3.0.2版（全中文新手版）");
+  out=out.replace(/^Worker版本：.*$/gm,"後端分析版本：第2.8.2版");
+  out=out.replace(/^Fibonacci演算法：.*$/gm,"費波那契N字演算法：轉折點結構第2.4版");
+
+  // 程式欄位名稱不能直接出現在新手報告。
+  out=out.replace(
+    /📌 primaryBreakoutType：fib｜目前通用突破量／防守／三日欄位以Fib事件為準/g,
+    "📌 目前主要突破依據：費波那契前高確認｜突破量、防守與三日確認都以這次正式前高確認為準"
+  );
+  out=out.replace(
+    /📌 primaryBreakoutType：tactical｜目前Fib尚未confirmed，通用欄位先以戰術事件為準/g,
+    "📌 目前主要突破依據：較早的戰術N字突破｜費波那契結構尚未正式確認，因此短線先看戰術事件"
+  );
+  out=out.replace(
+    /➡️ primaryBreakoutType = fib；因此通用 breakoutRelativeVolume20／breakoutDefense／threeDayConfirmation 只解讀這一層，避免雙突破混線。/g,
+    "➡️ 目前主要突破依據＝費波那契前高確認；因此通用的突破相對量、突破防守與三日確認都只解讀這一層，避免兩套突破訊號混在一起。"
+  );
+  out=out.replace(
+    /➡️ primaryBreakoutType = tactical；[^\n]*/g,
+    "➡️ 目前主要突破依據＝較早的戰術N字突破；費波那契結構尚未正式確認，因此兩套訊號仍分開解讀。"
+  );
+
+  // 市場與資料來源中文化。
+  out=out.replace(/｜TWSE\b/g,"｜上市市場");
+  out=out.replace(/｜TPEx\b/g,"｜上櫃市場");
+  out=out.replace(/資料來源：TWSE Official/g,"資料來源：臺灣證券交易所");
+  out=out.replace(/資料來源：Yahoo Finance/g,"資料來源：公開市場行情資料");
+
+  // 報告標題與常見英文技術詞。
+  const replacements=[
+    ["石頭少爺 Agent｜新手版技術分析報告","石頭少爺分析助手｜新手版技術分析報告"],
+    ["Fibonacci","費波那契"],
+    ["Fib","費波那契"],
+    ["Close","收盤價"],
+    ["High","最高價"],
+    ["Low","最低價"],
+    ["Day 1","突破第1天"],
+    ["Day1","突破第1天"],
+    ["RSI 5T","5期相對強弱指標"],
+    ["RSI","相對強弱指標"],
+    ["20MA","20期均線"],
+    ["MA20","20期均線"],
+    ["confirmed","已確認"],
+    ["failed","已失敗"],
+    ["forming","形成中"],
+    ["completed","已完成"],
+    ["If → Then","如果 → 那麼"],
+    [" vs "," 與 "],
+    ["Swing B","前波高點"],
+    ["OHLCV","開盤、最高、最低、收盤與成交量"],
+    ["V2.4","第2.4版"],
+    ["Worker","後端分析"]
+  ];
+  for(const [from,to] of replacements){
+    out=out.split(from).join(to);
+  }
+
+  // A／B／C 改成中文角色名稱；保留必要的「N字」術語，但不要求新手記英文字母。
+  const structureReplacements=[
+    ["A→B→C","起漲點→波段高點→回檔低點"],
+    ["A→B","起漲點→波段高點"],
+    ["B→C","波段高點→回檔低點"],
+    ["C→B","回檔低點→波段高點"],
+    ["A/B/C：","起漲點／波段高點／回檔低點："],
+    ["A｜起漲點：","起漲點："],
+    ["B｜波段高點：","波段高點："],
+    ["C｜回檔低點：","回檔低點："],
+    ["AB 波段幅度：","起漲點至波段高點幅度："],
+    ["有效 C","有效回檔低點"],
+    ["有效C","有效回檔低點"],
+    ["C 尚未形成","回檔低點尚未形成"],
+    ["C尚未形成","回檔低點尚未形成"],
+    ["C 形成","回檔低點形成"],
+    ["C形成","回檔低點形成"],
+    ["突破 B","突破前波高點"],
+    ["突破B","突破前波高點"],
+    ["站上 B","站上前波高點"],
+    ["守住 B","守住前波高點"],
+    ["守住B","守住前波高點"],
+    ["跌回 B","跌回前波高點"],
+    ["跌回B","跌回前波高點"],
+    ["B前高","前波高點"],
+    ["B＝","前波高點＝"],
+    ["B（","前波高點（"],
+    ["> B ","> 前波高點 "],
+    ["跌破 A＝","跌破起漲點＝"],
+    ["跌破 A","跌破起漲點"],
+    ["A＝","起漲點＝"]
+  ];
+  for(const [from,to] of structureReplacements){
+    out=out.split(from).join(to);
+  }
+
+  // K線、問答編號與劇本代號也中文化。
+  out=out.split("完成日K").join("完整日線");
+  out=out.split("日K").join("日線");
+  out=out.split("月K").join("月線");
+  out=out.split("突破K").join("突破日線");
+  out=out.split("K線").join("價格線");
+  out=out.replace(/❓ Q1：/g,"❓ 問題一：");
+  out=out.replace(/❓ Q2：/g,"❓ 問題二：");
+  out=out.replace(/❓ Q3：/g,"❓ 問題三：");
+  out=out.replace(/劇本 A｜/g,"劇本一｜");
+  out=out.replace(/劇本 B｜/g,"劇本二｜");
+  out=out.replace(/劇本 C｜/g,"劇本三｜");
+  out=out.replace(/劇本 D｜/g,"劇本四｜");
+
+  // 內部演算法名稱若仍殘留，不讓它破壞新手閱讀。
+  out=out.replace(/pivot-abc-v2\.4/gi,"轉折點結構第2.4版");
+  out=out.replace(/report-v3\.0\.2-chinese-beginner/gi,"第3.0.2版全中文新手報告");
+  out=out.replace(/fibonacci-v2\.8\.2-history-breakout-fields-unified/gi,"第2.8.2版雙突破欄位統一分析");
+
+  // 第二輪語句整理：避免直譯後出現不自然的中文，並移除 A／B／C 單獨字母。
+  const polishReplacements=[
+    ["已完成B確認","已完成前波高點確認"],
+    ["B確認完成","前波高點確認完成"],
+    ["費波那契 B確認","費波那契前高確認"],
+    ["費波那契 B 確認","費波那契前高確認"],
+    ["完成 B 確認","完成前波高點確認"],
+    ["N突破","N字突破"],
+    ["前高B附近","前波高點附近"],
+    ["前高 B","前波高點"],
+    ["前波高點 B","前波高點"],
+    ["回測B後","回測前波高點後"],
+    ["重新站上B","重新站上前波高點"],
+    ["C起算","由回檔低點起算"],
+    ["A/B/C幾何結構","起漲點／波段高點／回檔低點的幾何結構"],
+    ["第2.4版 的 A","第2.4版的起漲點"],
+    ["費波那契 B 與","費波那契前波高點與"],
+    ["正式 已失敗","正式判定失敗"],
+    ["正式 已確認","正式確認成立"],
+    ["有效回檔低點 形成後","有效回檔低點形成後"],
+    ["最低價<A","最低價跌破起漲點"],
+    ["收盤價<0.764","收盤價跌破0.764風控位"],
+    ["月線線","月線"],
+    ["日 5期相對強弱指標","日線5期相對強弱指標"],
+    ["短線 相對強弱指標","短線相對強弱指標"],
+    ["搭配 相對強弱指標","搭配相對強弱指標"],
+    ["同時 相對強弱指標","同時相對強弱指標"],
+    ["費波那契 事件","費波那契事件"],
+    ["這組 費波那契","這組費波那契"],
+    ["依 第2.4版","依第2.4版"],
+    ["的 A 與","的起漲點與"],
+    [" > 前波高點 B"," > 前波高點"],
+    ["前波高點 B＝","前波高點＝"],
+    [" B＝"," 前波高點＝"],
+    [" B（"," 前波高點（"]
+  ];
+  for(const [from,to] of polishReplacements){
+    out=out.split(from).join(to);
+  }
+
+  // 最後只保留 N 字型態這個慣用名稱；A/B/C 不單獨出現在新手報告。
+  out=out.replace(/\bA\b/g,"起漲點");
+  out=out.replace(/\bB\b/g,"前波高點");
+  out=out.replace(/\bC\b/g,"回檔低點");
+
+  const finalPolish=[
+    ["費波那契 N字","費波那契N字"],
+    ["費波那契 N","費波那契N"],
+    ["不與費波那契確認混用","不與費波那契前高確認混用"],
+    ["前高 前波高點","前波高點"],
+    ["以 費波那契事件","以費波那契事件"],
+    ["費波那契 事件","費波那契事件"],
+    ["費波那契 回檔","費波那契回檔"],
+    ["費波那契 第2.4版","費波那契第2.4版"],
+    ["費波那契 已確認","費波那契結構已確認"],
+    ["正式標記 已失敗","正式判定失敗"],
+    ["正式判定失敗 仍","正式判定失敗仍"],
+    ["起漲點 與","起漲點與"],
+    ["相對強弱指標 與","相對強弱指標與"],
+    ["相對強弱指標 偏高","相對強弱指標偏高"],
+    ["回檔低點 形成","回檔低點形成"],
+    ["波段高點→回檔低點 回檔","波段高點→回檔低點的回檔"],
+    ["回檔低點→波段高點 回升","回檔低點→波段高點的回升"],
+    ["起漲點→波段高點 0.618","起漲點→波段高點的0.618"],
+    ["起漲點→波段高點 0.764","起漲點→波段高點的0.764"],
+    ["開盤、最高、最低、收盤與成交量 與已定義規則","開盤、最高、最低、收盤與成交量，以及已定義規則"],
+    ["於 254.00 元附近 時","於254.00元附近時"],
+    ["正式判定失敗仍依 最低價跌破起漲點 或 收盤價跌破0.764風控位","正式判定失敗仍依「最低價跌破起漲點」或「收盤價跌破0.764風控位」"],
+    ["依費波那契第2.4版 正式判定失敗","依費波那契第2.4版正式判定失敗"]
+  ];
+  for(const [from,to] of finalPolish){
+    out=out.split(from).join(to);
+  }
+
+  return out;
+}
+
 function buildReportText(report){
   if(!report){
     return "";
@@ -2638,7 +2831,7 @@ function buildReportText(report){
   lines.push(`Worker版本：${version}`);
   lines.push(`Fibonacci演算法：${fib?.algorithm?.name||"-"}`);
 
-  return lines.join("\n");
+  return localizeBeginnerReportText(lines.join("\n"));
 }
 
 async function copyReport(){
@@ -2764,7 +2957,7 @@ async function analyzeStock(){
     };
 
     set("stockName",name);
-    set("stockMeta",`${code}｜${market}｜${source}｜Worker ${version}｜前端 V3.0`);
+    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.0.2`);
     set("closeDate",`最新交易日：${datefmt(closeDate)}`);
 
     const status=document.getElementById("status");
