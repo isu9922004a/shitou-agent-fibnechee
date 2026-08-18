@@ -276,7 +276,8 @@ body{
 
     <section class="panel">
       <div class="section-title">⑤ 📐 費波那契 N字分析</div>
-      <div class="section-subtitle">N字與月線是兩套不同判斷。N字狀態只描述目前 Swing A→B→C 結構，不代表月線是否符合建倉條件。</div>
+      <div class="section-subtitle">N字與月線是兩套不同判斷。新手先記：A＝起漲點、B＝前波高點、C＝回檔低點；A起漲 → B前高 → C回檔 → 再收盤突破B，才是完整費波那契N字確認。</div>
+      <div class="rule"><strong>ABC 新手白話：</strong>A＝這一組N字的起漲點；B＝A上漲後形成的前波高點；C＝B回檔後形成的有效低點。只有 C 已形成後，再由 C 回升並以完整日K收盤突破 B，才正式啟用 0.618／0.764／1.618。若 C 還沒形成，就算現價先漲過 B，也不能倒推成完整 Fib N字。</div>
 
       <div class="fib-head">
         <div id="fibStatus" class="fib-status not-formed">⚪ 尚未形成</div>
@@ -362,11 +363,11 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.2.1 狀態感知動態策略報告版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.2.2 ABC 新手白話強化版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.2.1-state-aware-regression";
+const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.2.2-abc-beginner-language";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
 // 股票中文名稱：
@@ -4619,6 +4620,215 @@ function buildReportTextV321(report){
 }
 
 
+/* =========================================================
+   V3.2.2 報告層｜ABC 新手白話強化
+   ---------------------------------------------------------
+   只強化前端報告文字與教學，不改 Worker / Fib V2.4 核心。
+   A = 起漲點、B = 前波高點、C = 回檔低點。
+   ========================================================= */
+
+function abcPlainTextV322(text){
+  let x=String(text??"");
+  // 先換最長片語，避免 A→B→C 被 A→B 提前吃掉。
+  x=x.replaceAll("A→B→C","起漲點A → 前波高點B → 回檔低點C");
+  x=x.replaceAll("A→B","起漲點A → 前波高點B");
+  x=x.replaceAll("C尚未形成","回檔低點C尚未形成");
+  x=x.replaceAll("等待C","等待回檔低點C");
+  x=x.replaceAll("有效C","有效回檔低點C");
+  x=x.replaceAll("候選B","候選前波高點B");
+  return x;
+}
+
+function abcPlainLinesV322(lines){
+  return (Array.isArray(lines)?lines:[]).map(abcPlainTextV322);
+}
+
+function buildABCNewbieLinesV322(report,s){
+  const lines=[];
+  const A=n(s?.fib?.A),B=n(s?.fib?.B),C=n(s?.fib?.C),close=n(report?.close);
+
+  lines.push("ABC 是一組費波那契N字的三個『轉折點角色』，不是叫你看到字母就買賣。");
+  lines.push(`A｜起漲點：${A!==null?`${fmt(A)} 元`:`尚未形成`}｜這一組候選N字開始上漲前的低點，可把它想成「這一組N字的起點」。`);
+  lines.push(`B｜前波高點：${B!==null?`${fmt(B)} 元`:`尚未形成`}｜股價從A往上後形成的高點，也是後續要觀察能不能正式突破的重要關卡。`);
+  lines.push(`C｜回檔低點：${C!==null?`${fmt(C)} 元`:`尚未形成`}｜股價從B拉回後形成的有效低點；C形成後，才有完整N字的第三個轉折點。`);
+  lines.push("");
+
+  if(s?.confirmed){
+    lines.push(`✅ 目前進度：A起漲 ✅ → B前高 ✅ → C回檔 ✅ → C後完整日線收盤突破B ${B!==null?fmt(B):"-"} 元 ✅`);
+    lines.push("📐 結論：這一組費波那契N字已正式確認，因此才正式使用0.618支撐、0.764風控與1.618目標。 ");
+  }else if(s?.forming){
+    lines.push(`⏳ 目前進度：A起漲 ✅ → B前高 ✅ → C回檔 ✅ → 再收盤突破B ${B!==null?fmt(B):"-"} 元 ⏳`);
+    lines.push("🟡 結論：A、B、C三個轉折點已經有了，現在不是再等一個C；最後只差由C回升後，以完整日線收盤突破B，Fib才正式確認。 ");
+  }else if(s?.hasAB){
+    const aboveB=B!==null&&close!==null&&close>B;
+    lines.push(`⏳ 目前進度：A起漲 ✅ → B前高 ✅ → C回檔 ⏳ → 再突破B 尚未進入正式確認階段`);
+    if(aboveB){
+      lines.push(`⚠️ 現價 ${fmt(close)} 元雖然已高於B ${fmt(B)} 元，但C還沒形成；完整N字不能跳過C，所以這仍不是Fib正式確認。`);
+    }else{
+      lines.push(`🟡 現在最重要的是先讓B之後的回檔真正止穩，形成有效C；B ${B!==null?fmt(B):"-"} 元目前是候選前高／未來觀察關卡。`);
+    }
+  }else{
+    lines.push("⏳ 目前進度：新的A／B／C結構尚未完整建立，先等待市場形成新的轉折點，不硬猜A、B或C。 ");
+  }
+
+  lines.push("");
+  lines.push("📌 最簡單記法：A起漲 → B前高 → C回檔 → 再由C往上，完整日線收盤突破B＝完整費波那契N字正式確認。 ");
+  return lines;
+}
+
+function buildStrategyQuickLinesV322(report,s){
+  return abcPlainLinesV322(buildStrategyQuickLinesV321(report,s));
+}
+
+function buildUnheldStrategyLinesV322(report,s){
+  return abcPlainLinesV322(buildUnheldStrategyLinesV321(report,s));
+}
+
+function buildHeldStrategyLinesV322(report,s){
+  return abcPlainLinesV322(buildHeldStrategyLinesV321(report,s));
+}
+
+function buildAddRulesLinesV322(report,s){
+  return abcPlainLinesV322(buildAddRulesLinesV321(report,s));
+}
+
+function buildProfitPlanLinesV322(report,s){
+  return abcPlainLinesV322(buildProfitPlanLinesV321(report,s));
+}
+
+function buildWeaknessPlanLinesV322(report,s){
+  return abcPlainLinesV322(buildWeaknessPlanLinesV321(report,s));
+}
+
+function buildPriceMapLinesV322(report,s){
+  return abcPlainLinesV322(buildPriceMapLinesV321(report,s)).map(line=>{
+    let x=line;
+    // 價格地圖第一次看到字母時直接附中文角色。
+    x=x.replace(/^([🟢🟡⚪🔴⚠️📍🎯🛡️🚨🏆🔥➖💀📌]+\s*)B\b/,'$1前波高點B');
+    x=x.replace(/^([🟢🟡⚪🔴⚠️📍🎯🛡️🚨🏆🔥➖💀📌]+\s*)A\b/,'$1起漲點A');
+    return x;
+  });
+}
+
+function buildScenarioV322Lines(report,s){
+  return abcPlainLinesV322(buildScenarioV321Lines(report,s));
+}
+
+function buildTechnicalV322Lines(report,s){
+  const src=abcPlainLinesV322(buildTechnicalV321Lines(report,s));
+  const lines=[];
+  for(const line of src){
+    lines.push(line);
+    if(line==="【費波那契N字】"){
+      lines.push("ABC白話：A＝起漲點｜B＝前波高點｜C＝回檔低點");
+      lines.push("完整確認：C形成後，再由C回升並以完整日線收盤突破B。 ");
+    }
+  }
+  return lines;
+}
+
+function buildHistoryV322Lines(report,s){
+  const lines=abcPlainLinesV322(buildHistoryV321Lines(report,s));
+  if(lines.length){
+    lines.splice(1,0,"📘 歷史列出的三個價格依序就是：A起漲點／B前波高點／C回檔低點。 ");
+  }
+  return lines;
+}
+
+function buildRememberLinesV322(report,s){
+  const lines=abcPlainLinesV322(buildRememberLinesV321(report,s));
+  // 新手最後記憶區把裸字母補成中文角色。
+  return lines.map(line=>line
+    .replace(/🛡️ B /g,"🛡️ 前波高點B ")
+    .replace(/🎯 B /g,"🎯 前波高點B ")
+    .replace(/🎯 候選前波高點B /g,"🎯 候選前波高點B ")
+    .replace(/🚨 A /g,"🚨 起漲點A ")
+  );
+}
+
+function buildFinalReadingV322(report,s){
+  return abcPlainLinesV322(buildFinalReadingV321(report,s));
+}
+
+function buildReportTextV322(report){
+  if(!report)return "";
+  const s=currentStrategyStateV321(report);
+  const lines=[];
+  lines.push("📘 石頭少爺分析助手｜V3.2.2 ABC 新手白話強化版");
+  lines.push(`報告產出時間：${reportGeneratedAt()}`);
+  lines.push("");
+  lines.push(`股票：${formatStockNameWithCode(report.name,report.code)}｜${marketNameZh(report.market)}`);
+  lines.push(`最新交易日：${datefmt(report.closeDate)}｜資料來源：${sourceNameZh(report.source)}`);
+  lines.push(`📍 最新收盤價：${fmt(report.close)} 元`);
+  lines.push("");
+
+  lineSection(lines,"🚦 先看結論｜現在該怎麼做？");
+  lines.push(...buildStrategyQuickLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"🧩 新手先懂ABC｜這檔現在走到哪一步？");
+  lines.push(...buildABCNewbieLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"👤 未持有者｜現在怎麼布局？");
+  lines.push(...buildUnheldStrategyLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"👤 已持有者｜現在怎麼做？");
+  lines.push(...buildHeldStrategyLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"🚀 什麼時候可以評估加碼？");
+  lines.push(...buildAddRulesLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"💰 什麼時候開始考慮獲利了結？");
+  lines.push(...buildProfitPlanLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"⚠️ 什麼時候轉弱／落入盤整？");
+  lines.push("➖ 盤整不等於看空；新版會依目前是在突破、回測、等待回檔低點C、月線未成立或結構空窗，改用對應的轉弱條件。 ");
+  lines.push("");
+  lines.push(...buildWeaknessPlanLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,getPriceMapTitleV321(report,s));
+  lines.push(...buildPriceMapLinesV322(report,s));
+  lines.push("");
+
+  const scenarios=buildScenarioV322Lines(report,s);
+  lineSection(lines,`📅 下一交易日｜${scenarios.length}種白話劇本`);
+  lines.push(...scenarios);
+  lines.push("");
+
+  lineSection(lines,"📊 詳細技術資料");
+  lines.push(...buildTechnicalV322Lines(report,s));
+  lines.push("");
+
+  const hist=buildHistoryV322Lines(report,s);
+  if(hist.length){
+    lineSection(lines,"🕘 歷史N字｜生命週期回顧");
+    lines.push(...hist);
+    lines.push("");
+  }
+
+  lineSection(lines,"🔑 新手最後只要記住");
+  lines.push("📘 ABC：A＝起漲點｜B＝前波高點｜C＝回檔低點");
+  lines.push(...buildRememberLinesV322(report,s));
+  lines.push("");
+
+  lineSection(lines,"🧭 石頭少爺最後判讀");
+  lines.push(...buildFinalReadingV322(report,s));
+  lines.push("");
+  lines.push("⚠️ 技術分析僅供研究與決策參考。布局、加碼、續抱、分批獲利都是依價格結構提出的條件式規劃，仍需搭配個人持股成本、部位大小與可承受風險。 ");
+  lines.push("");
+  lines.push("前端報告版本：第3.2.2版（ABC 新手白話強化｜A起漲點／B前波高點／C回檔低點｜狀態感知動態策略保留）");
+  lines.push(`後端分析版本：${report.version||"-"}`);
+  lines.push("費波那契N字演算法：轉折點結構第2.4版");
+  return lines.join("\n");
+}
+
+
 function buildLegacyReportText(report){
   if(!report){
     return "";
@@ -4745,7 +4955,7 @@ function buildLegacyReportText(report){
 }
 
 function buildReportText(report){
-  return buildReportTextV321(report);
+  return buildReportTextV322(report);
 }
 
 async function copyReport(){
