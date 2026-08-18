@@ -202,7 +202,7 @@ body{
   <div class="container">
     <h1>⏳傑克.石頭Agent</h1>
     <p>月線波段條件判斷＋固定倍數目標價＋費波那契 N字分析</p>
-    <span class="version-pill">前端 V3.1｜繁中名稱搜尋版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
+    <span class="version-pill">前端 V3.1.1｜繁中名稱修正版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
   </div>
 </header>
 
@@ -362,11 +362,11 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.1 繁中名稱搜尋版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.1.1 繁中名稱修正版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.1-tw-stock-name-search";
+const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.1.1-stock-name-cache-fix";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
 // 股票中文名稱：
@@ -374,11 +374,12 @@ const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 // 2) LOCAL_NAME_MAP 僅作官方清單暫時無法連線時的少量備援。
 const TWSE_STOCK_DIRECTORY_URL="https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
 const TPEX_STOCK_DIRECTORY_URL="https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes";
-const STOCK_DIRECTORY_CACHE_KEY="shitou-agent-tw-stock-directory-v1";
+const STOCK_DIRECTORY_CACHE_KEY="shitou-agent-tw-stock-directory-v2";
 const STOCK_DIRECTORY_CACHE_MS=12*60*60*1000;
 
 const LOCAL_NAME_MAP={
   "4939":"亞電",
+  "5351":"鈺創",
   "5483":"中美晶",
   "4561":"健椿",
   "8039":"台虹",
@@ -477,9 +478,11 @@ function parseStockCodeFromMixedInput(value){
   return m?m[1]:null;
 }
 
-function buildStockDirectory(twseRows,tpexRows){
+function buildStockDirectory(twseRows,tpexRows,status={}){
   const byCode={};
   const records=[];
+  const twseLoaded=status.twseLoaded===true;
+  const tpexLoaded=status.tpexLoaded===true;
 
   function addRecord(code,name,market){
     const c=String(code??"").trim();
@@ -518,7 +521,10 @@ function buildStockDirectory(twseRows,tpexRows){
   return {
     byCode,
     records,
-    source:records.length>Object.keys(LOCAL_NAME_MAP).length?"official":"fallback"
+    twseLoaded,
+    tpexLoaded,
+    complete:twseLoaded&&tpexLoaded,
+    source:twseLoaded&&tpexLoaded?"official-complete":(twseLoaded||tpexLoaded?"official-partial":"fallback")
   };
 }
 
@@ -528,7 +534,10 @@ function readStockDirectoryCache(){
     if(!raw)return null;
     const cached=JSON.parse(raw);
     if(!cached?.savedAt||Date.now()-cached.savedAt>STOCK_DIRECTORY_CACHE_MS)return null;
-    if(!Array.isArray(cached.records)||cached.records.length<10)return null;
+    // V3.1 的 bug：只抓到上市資料也會被當成完整清單快取。
+    // V3.1.1 起，只有「上市＋上櫃都成功」的清單才允許讀取。
+    if(cached.complete!==true||cached.twseLoaded!==true||cached.tpexLoaded!==true)return null;
+    if(!Array.isArray(cached.records)||cached.records.length<100)return null;
 
     const byCode={};
     for(const r of cached.records){
@@ -540,7 +549,14 @@ function readStockDirectoryCache(){
         };
       }
     }
-    return {byCode,records:cached.records,source:"cache"};
+    return {
+      byCode,
+      records:cached.records,
+      twseLoaded:true,
+      tpexLoaded:true,
+      complete:true,
+      source:"cache-complete"
+    };
   }catch{
     return null;
   }
@@ -548,10 +564,17 @@ function readStockDirectoryCache(){
 
 function writeStockDirectoryCache(directory){
   try{
-    if(!directory?.records?.length)return;
+    // 絕對不快取只有單一市場的半套清單，避免上櫃股票被誤判成「沒有中文名稱」。
+    if(!directory?.complete||!directory?.records?.length)return;
     localStorage.setItem(
       STOCK_DIRECTORY_CACHE_KEY,
-      JSON.stringify({savedAt:Date.now(),records:directory.records})
+      JSON.stringify({
+        savedAt:Date.now(),
+        records:directory.records,
+        twseLoaded:true,
+        tpexLoaded:true,
+        complete:true
+      })
     );
   }catch{
     // 瀏覽器不允許 localStorage 時，只是不快取，不影響查詢。
@@ -569,14 +592,17 @@ async function fetchJsonForDirectory(url){
   return data;
 }
 
-async function loadStockDirectory(){
+async function loadStockDirectory(forceRefresh=false){
+  if(forceRefresh)stockDirectoryPromise=null;
   if(stockDirectoryPromise)return stockDirectoryPromise;
 
   stockDirectoryPromise=(async()=>{
-    const cached=readStockDirectoryCache();
-    if(cached){
-      populateStockSuggestions(cached);
-      return cached;
+    if(!forceRefresh){
+      const cached=readStockDirectoryCache();
+      if(cached){
+        populateStockSuggestions(cached,true);
+        return cached;
+      }
     }
 
     const [twseResult,tpexResult]=await Promise.allSettled([
@@ -584,26 +610,39 @@ async function loadStockDirectory(){
       fetchJsonForDirectory(TPEX_STOCK_DIRECTORY_URL)
     ]);
 
-    const twseRows=twseResult.status==="fulfilled"?twseResult.value:[];
-    const tpexRows=tpexResult.status==="fulfilled"?tpexResult.value:[];
-    const directory=buildStockDirectory(twseRows,tpexRows);
+    const twseLoaded=twseResult.status==="fulfilled";
+    const tpexLoaded=tpexResult.status==="fulfilled";
+    const twseRows=twseLoaded?twseResult.value:[];
+    const tpexRows=tpexLoaded?tpexResult.value:[];
+    const directory=buildStockDirectory(twseRows,tpexRows,{twseLoaded,tpexLoaded});
 
-    if(directory.source!=="fallback")writeStockDirectoryCache(directory);
-    populateStockSuggestions(directory);
+    if(directory.complete)writeStockDirectoryCache(directory);
+    populateStockSuggestions(directory,true);
+
+    if(!directory.complete){
+      console.warn(
+        "股票中文名稱清單僅部分載入：",
+        {twseLoaded,tpexLoaded,twseError:twseResult.reason,tpexError:tpexResult.reason}
+      );
+    }
+
     return directory;
   })().catch(err=>{
     console.warn("股票中文名稱清單載入失敗：",err);
-    const directory=buildStockDirectory([],[]);
-    populateStockSuggestions(directory);
+    const directory=buildStockDirectory([],[],{twseLoaded:false,tpexLoaded:false});
+    populateStockSuggestions(directory,true);
     return directory;
   });
 
   return stockDirectoryPromise;
 }
 
-function populateStockSuggestions(directory){
+function populateStockSuggestions(directory,replaceExisting=false){
   const list=document.getElementById("stockSuggestions");
-  if(!list||!directory?.records||list.dataset.loaded==="1")return;
+  if(!list||!directory?.records)return;
+
+  if(replaceExisting)list.innerHTML="";
+  if(!replaceExisting&&list.dataset.loaded==="1")return;
 
   const frag=document.createDocumentFragment();
   for(const r of directory.records){
@@ -635,9 +674,15 @@ function findStockByChineseName(raw,directory){
 
 async function resolveStockInput(raw){
   const mixedCode=parseStockCodeFromMixedInput(raw);
-  const directory=await loadStockDirectory();
+  let directory=await loadStockDirectory();
 
   if(mixedCode){
+    // 若目前清單是半套，而且這個代號又查不到，強制再抓一次官方清單。
+    // 這可修正 V3.1「只快取上市資料，導致上櫃股票顯示 股票 5351」的問題。
+    if(!directory.byCode?.[mixedCode]&&!directory.complete){
+      directory=await loadStockDirectory(true);
+    }
+
     return {
       code:mixedCode,
       officialName:directory.byCode?.[mixedCode]?.name||LOCAL_NAME_MAP[mixedCode]||null,
@@ -647,26 +692,17 @@ async function resolveStockInput(raw){
 
   const text=String(raw??"").trim();
   if(!text){
-    throw new Error("請輸入股票代號或繁體中文股票名稱，例如 8039、台虹、4939、亞電。");
+    throw new Error("請輸入股票代號或繁體中文股票名稱，例如 8039、台虹、4939、亞電。 ");
   }
 
-  if(directory.source==="fallback"){
-    const fallbackMatches=Object.entries(LOCAL_NAME_MAP)
-      .filter(([,name])=>normalizeStockSearchText(name)===normalizeStockSearchText(text))
-      .map(([code,name])=>({code,name,market:"fallback"}));
+  let found=findStockByChineseName(text,directory);
 
-    if(fallbackMatches.length===1){
-      return {
-        code:fallbackMatches[0].code,
-        officialName:fallbackMatches[0].name,
-        directory
-      };
-    }
-
-    throw new Error("目前無法載入官方股票中文名稱清單，暫時請改用股票代號查詢。");
+  // 中文名稱找不到且清單不完整時，先強制重新整理一次再判定。
+  if(!found.match&&!found.candidates.length&&!directory.complete){
+    directory=await loadStockDirectory(true);
+    found=findStockByChineseName(text,directory);
   }
 
-  const found=findStockByChineseName(text,directory);
   if(found.match){
     return {
       code:found.match.code,
@@ -675,9 +711,26 @@ async function resolveStockInput(raw){
     };
   }
 
+  // 即使官方清單暫時失敗，仍可使用內建備援名稱查詢已知個股。
+  const fallbackMatches=Object.entries(LOCAL_NAME_MAP)
+    .filter(([,name])=>normalizeStockSearchText(name)===normalizeStockSearchText(text))
+    .map(([code,name])=>({code,name,market:"fallback"}));
+
+  if(fallbackMatches.length===1){
+    return {
+      code:fallbackMatches[0].code,
+      officialName:fallbackMatches[0].name,
+      directory
+    };
+  }
+
   if(found.candidates.length){
     const choices=found.candidates.map(x=>`${x.name}（${x.code}）`).join("、");
     throw new Error(`找到多筆相近股票：${choices}。請輸入更完整的股票名稱或直接輸入股票代號。`);
+  }
+
+  if(!directory.complete){
+    throw new Error(`目前官方繁中股票名稱清單只有部分載入，暫時找不到「${text}」。可先輸入股票代號查詢；頁面稍後會再嘗試載入完整上市／上櫃名稱清單。`);
   }
 
   throw new Error(`找不到「${text}」對應的上市／上櫃股票，請確認繁體中文股票簡稱或改用股票代號。`);
@@ -688,8 +741,26 @@ function resolveTraditionalStockName(code,apiName,directory,preferredName){
   if(official&&hasCjkText(official))return official;
   if(apiName&&hasCjkText(apiName))return String(apiName).trim();
 
-  // 後端如果只回英文公司名，新手版不把英文名稱帶入報告。
-  return `股票 ${code}`;
+  // 若官方清單暫時無法取得，也不要製造「股票 5351（5351）」這種重複名稱。
+  return String(code);
+}
+
+function hasRealStockName(name,code){
+  const nm=String(name??"").trim();
+  const c=String(code??"").trim();
+  return !!nm && nm!==c && nm!==`股票 ${c}` && nm!==`股票${c}` && nm!==`代號 ${c}`;
+}
+
+function formatStockNameWithCode(name,code){
+  return hasRealStockName(name,code)
+    ?`${name}（${code}）`
+    :`股票代號 ${code}`;
+}
+
+function formatStockDetailTitle(name,code){
+  return hasRealStockName(name,code)
+    ?`${name} ${code}`
+    :`股票代號 ${code}`;
 }
 
 function esc(v){
@@ -2769,7 +2840,7 @@ function localizeBeginnerReportText(text){
   let out=String(text||"");
 
   // 系統資訊改成新手看得懂的版本名稱，不直接暴露程式內部英文代號。
-  out=out.replace(/^前端報告版本：.*$/gm,"前端報告版本：第3.0.3版（中文新手版｜RSI 5T／MA20 保留）");
+  out=out.replace(/^前端報告版本：.*$/gm,"前端報告版本：第3.1.1版（繁中股票名稱修正版｜RSI 5T／MA20 保留）");
   out=out.replace(/^Worker版本：.*$/gm,"後端分析版本：第2.8.2版");
   out=out.replace(/^Fibonacci演算法：.*$/gm,"費波那契N字演算法：轉折點結構第2.4版");
 
@@ -2874,7 +2945,7 @@ function localizeBeginnerReportText(text){
 
   // 內部演算法名稱若仍殘留，不讓它破壞新手閱讀。
   out=out.replace(/pivot-abc-v2\.4/gi,"轉折點結構第2.4版");
-  out=out.replace(/report-v3\.0\.2-chinese-beginner/gi,"第3.0.3版中文新手報告");
+  out=out.replace(/report-v3\.1\.1-stock-name-cache-fix/gi,"第3.1.1版繁中名稱修正版");
   out=out.replace(/fibonacci-v2\.8\.2-history-breakout-fields-unified/gi,"第2.8.2版雙突破欄位統一分析");
 
   // 第二輪語句整理：避免直譯後出現不自然的中文，並移除 A／B／C 單獨字母。
@@ -2945,6 +3016,27 @@ function localizeBeginnerReportText(text){
     out=out.split(from).join(to);
   }
 
+  // V3.1.1：清掉 V3.1 報告仍可能漏出的內部英文狀態與不自然句型。
+  const v311Polish=[
+    ["not_formed","尚未形成"],
+    ["目前沒有 active 的戰術N字突破事件","目前沒有有效的戰術N字突破事件"],
+    ["目前沒有 active 的前三高戰術N字突破","目前沒有有效的前三高戰術N字突破"],
+    ["目前無 active 戰術N字突破事件","目前無有效的戰術N字突破事件"],
+    ["費波那契尚未已確認","費波那契尚未確認"],
+    ["費波那契 尚未已確認","費波那契尚未確認"],
+    ["費波那契尚未 已確認","費波那契尚未確認"],
+    ["費波那契N字 已失敗","費波那契N字已失敗"],
+    ["費波那契N字 已確認","費波那契N字已確認"],
+    ["目前沒有新的有效 起漲點","目前沒有新的有效起漲點"],
+    ["等待新的 起漲點","等待新的起漲點"],
+    ["形成完整 起漲點","形成完整起漲點"],
+    ["正式 費波那契","正式費波那契"],
+    ["一組新的 N字","一組新的N字"]
+  ];
+  for(const [from,to] of v311Polish){
+    out=out.split(from).join(to);
+  }
+
   return out;
 }
 
@@ -2978,14 +3070,14 @@ function buildReportText(report){
   lines.push("📘 石頭少爺 Agent｜新手版技術分析報告");
   lines.push(`報告產出時間：${reportGeneratedAt()}`);
   lines.push("");
-  lines.push(`股票：${name}（${code}）｜${market}`);
+  lines.push(`股票：${formatStockNameWithCode(name,code)}｜${market}`);
   lines.push(`最新交易日：${datefmt(closeDate)}｜資料來源：${source}`);
   lines.push("");
 
   lines.push(...buildBeginnerThreeSentenceLines(report,fixed,rsiInfo,rrInfo));
   lines.push("");
 
-  lines.push(`【${headlineIcon} ${name} ${code}｜詳細現況】`);
+  lines.push(`【${headlineIcon} ${formatStockDetailTitle(name,code)}｜詳細現況】`);
   lines.push("");
   lines.push(...buildCurrentFocusLines(report,fixed,rsiInfo,rrInfo));
   lines.push("");
@@ -3204,8 +3296,8 @@ async function analyzeStock(){
       base,latestMonthClose,latestMA,dailyRsi,breakMonth,breakClose,breakMA,fib,tacticalN,volume,structure,tactical
     };
 
-    set("stockName",name);
-    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.1`);
+    set("stockName",hasRealStockName(name,code)?name:`股票代號 ${code}`);
+    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.1.1`);
     set("closeDate",`最新交易日：${datefmt(closeDate)}`);
 
     const status=document.getElementById("status");
@@ -3257,8 +3349,13 @@ document.getElementById("stockInput").addEventListener("keydown",e=>{
 });
 
 // 背景預載官方繁中名稱，輸入中文時可直接從候選清單選擇。
+// 若第一次只載到單一市場，30 秒後再嘗試一次；完整清單才會寫入快取。
 setTimeout(()=>{
-  loadStockDirectory().catch(()=>{});
+  loadStockDirectory().then(directory=>{
+    if(!directory?.complete){
+      setTimeout(()=>loadStockDirectory(true).catch(()=>{}),30000);
+    }
+  }).catch(()=>{});
 },250);
 </script>
 </body>
