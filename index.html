@@ -202,7 +202,7 @@ body{
   <div class="container">
     <h1>⏳傑克.石頭Agent</h1>
     <p>月線波段條件判斷＋固定倍數目標價＋費波那契 N字分析</p>
-    <span class="version-pill">前端 V3.0.2｜全中文新手版｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
+    <span class="version-pill">前端 V3.0.3｜中文新手版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
   </div>
 </header>
 
@@ -361,11 +361,11 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.0.2 全中文新手版｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.0.3 中文新手版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-18-report-v3.0.2-chinese-beginner";
+const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.0.3-rsi5t-ma20-restored";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
 // Yahoo Finance 的 TPEx 名稱有時回傳英文；僅影響前端顯示，不影響計算。
@@ -2520,7 +2520,7 @@ function localizeBeginnerReportText(text){
   let out=String(text||"");
 
   // 系統資訊改成新手看得懂的版本名稱，不直接暴露程式內部英文代號。
-  out=out.replace(/^前端報告版本：.*$/gm,"前端報告版本：第3.0.2版（全中文新手版）");
+  out=out.replace(/^前端報告版本：.*$/gm,"前端報告版本：第3.0.3版（中文新手版｜RSI 5T／MA20 保留）");
   out=out.replace(/^Worker版本：.*$/gm,"後端分析版本：第2.8.2版");
   out=out.replace(/^Fibonacci演算法：.*$/gm,"費波那契N字演算法：轉折點結構第2.4版");
 
@@ -2558,10 +2558,6 @@ function localizeBeginnerReportText(text){
     ["Low","最低價"],
     ["Day 1","突破第1天"],
     ["Day1","突破第1天"],
-    ["RSI 5T","5期相對強弱指標"],
-    ["RSI","相對強弱指標"],
-    ["20MA","20期均線"],
-    ["MA20","20期均線"],
     ["confirmed","已確認"],
     ["failed","已失敗"],
     ["forming","形成中"],
@@ -2629,7 +2625,7 @@ function localizeBeginnerReportText(text){
 
   // 內部演算法名稱若仍殘留，不讓它破壞新手閱讀。
   out=out.replace(/pivot-abc-v2\.4/gi,"轉折點結構第2.4版");
-  out=out.replace(/report-v3\.0\.2-chinese-beginner/gi,"第3.0.2版全中文新手報告");
+  out=out.replace(/report-v3\.0\.2-chinese-beginner/gi,"第3.0.3版中文新手報告");
   out=out.replace(/fibonacci-v2\.8\.2-history-breakout-fields-unified/gi,"第2.8.2版雙突破欄位統一分析");
 
   // 第二輪語句整理：避免直譯後出現不自然的中文，並移除 A／B／C 單獨字母。
@@ -2655,10 +2651,6 @@ function localizeBeginnerReportText(text){
     ["最低價<A","最低價跌破起漲點"],
     ["收盤價<0.764","收盤價跌破0.764風控位"],
     ["月線線","月線"],
-    ["日 5期相對強弱指標","日線5期相對強弱指標"],
-    ["短線 相對強弱指標","短線相對強弱指標"],
-    ["搭配 相對強弱指標","搭配相對強弱指標"],
-    ["同時 相對強弱指標","同時相對強弱指標"],
     ["費波那契 事件","費波那契事件"],
     ["這組 費波那契","這組費波那契"],
     ["依 第2.4版","依第2.4版"],
@@ -2690,8 +2682,6 @@ function localizeBeginnerReportText(text){
     ["正式標記 已失敗","正式判定失敗"],
     ["正式判定失敗 仍","正式判定失敗仍"],
     ["起漲點 與","起漲點與"],
-    ["相對強弱指標 與","相對強弱指標與"],
-    ["相對強弱指標 偏高","相對強弱指標偏高"],
     ["回檔低點 形成","回檔低點形成"],
     ["波段高點→回檔低點 回檔","波段高點→回檔低點的回檔"],
     ["回檔低點→波段高點 回升","回檔低點→波段高點的回升"],
@@ -2957,7 +2947,7 @@ async function analyzeStock(){
     };
 
     set("stockName",name);
-    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.0.2`);
+    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.0.3`);
     set("closeDate",`最新交易日：${datefmt(closeDate)}`);
 
     const status=document.getElementById("status");
