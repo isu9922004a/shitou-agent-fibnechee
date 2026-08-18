@@ -362,11 +362,11 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.1.1 繁中名稱修正版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.2 動態策略報告版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.1.1-stock-name-cache-fix";
+const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.2-dynamic-strategy-name-robust";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
 // 股票中文名稱：
@@ -374,12 +374,16 @@ const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 // 2) LOCAL_NAME_MAP 僅作官方清單暫時無法連線時的少量備援。
 const TWSE_STOCK_DIRECTORY_URL="https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL";
 const TPEX_STOCK_DIRECTORY_URL="https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes";
-const STOCK_DIRECTORY_CACHE_KEY="shitou-agent-tw-stock-directory-v2";
+const TPEX_COMPANY_DIRECTORY_URL="https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O";
+const TWSE_MIS_STOCK_INFO_URL="https://mis.twse.com.tw/stock/api/getStockInfo.jsp";
+const STOCK_DIRECTORY_CACHE_KEY="shitou-agent-tw-stock-directory-v3";
 const STOCK_DIRECTORY_CACHE_MS=12*60*60*1000;
 
 const LOCAL_NAME_MAP={
+  "2377":"微星",
   "4939":"亞電",
   "5351":"鈺創",
+  "5425":"台半",
   "5483":"中美晶",
   "4561":"健椿",
   "8039":"台虹",
@@ -478,11 +482,22 @@ function parseStockCodeFromMixedInput(value){
   return m?m[1]:null;
 }
 
-function buildStockDirectory(twseRows,tpexRows,status={}){
+function buildStockDirectory(twseRows,tpexQuoteRows,tpexCompanyRows,status={}){
   const byCode={};
   const records=[];
   const twseLoaded=status.twseLoaded===true;
-  const tpexLoaded=status.tpexLoaded===true;
+  const tpexQuoteLoaded=status.tpexQuoteLoaded===true;
+  const tpexCompanyLoaded=status.tpexCompanyLoaded===true;
+  const tpexLoaded=tpexQuoteLoaded||tpexCompanyLoaded;
+
+  function chooseCjkName(...values){
+    const candidates=values
+      .map(v=>String(v??"").trim())
+      .filter(v=>v&&hasCjkText(v));
+    if(!candidates.length)return "";
+    // 股票簡稱通常較短；同時避免公司全名蓋掉已取得的簡稱。
+    return candidates.sort((a,b)=>a.length-b.length)[0];
+  }
 
   function addRecord(code,name,market){
     const c=String(code??"").trim();
@@ -493,7 +508,13 @@ function buildStockDirectory(twseRows,tpexRows,status={}){
     if(!byCode[c]){
       byCode[c]=record;
       records.push(record);
-    }else if(!hasCjkText(byCode[c].name)&&hasCjkText(nm)){
+      return;
+    }
+
+    const old=byCode[c];
+    const oldCjk=hasCjkText(old.name);
+    const newCjk=hasCjkText(nm);
+    if((!oldCjk&&newCjk)||(oldCjk&&newCjk&&nm.length<old.name.length)){
       byCode[c]=record;
       const idx=records.findIndex(x=>x.code===c);
       if(idx>=0)records[idx]=record;
@@ -504,15 +525,41 @@ function buildStockDirectory(twseRows,tpexRows,status={}){
     addRecord(row?.Code,row?.Name,"TWSE");
   }
 
-  for(const row of Array.isArray(tpexRows)?tpexRows:[]){
-    addRecord(
-      row?.SecuritiesCompanyCode ?? row?.Code ?? row?.SecuritiesCode,
-      row?.CompanyName ?? row?.Name ?? row?.SecuritiesCompanyName,
-      "TPEx"
+  // 上櫃行情 API：不同版本可能使用不同欄位名稱，全部兼容。
+  for(const row of Array.isArray(tpexQuoteRows)?tpexQuoteRows:[]){
+    const code=row?.SecuritiesCompanyCode ?? row?.Code ?? row?.SecuritiesCode ?? row?.CompanyCode ?? row?.["股票代號"] ?? row?.["公司代號"];
+    const name=chooseCjkName(
+      row?.SecuritiesCompanyName,
+      row?.SecuritiesName,
+      row?.CompanyAbbreviation,
+      row?.ShortName,
+      row?.CompanyName,
+      row?.Name,
+      row?.["公司簡稱"],
+      row?.["證券名稱"],
+      row?.["股票名稱"],
+      row?.["公司名稱"]
     );
+    addRecord(code,name,"TPEx");
   }
 
-  // 備援名稱只補缺漏，不覆蓋官方資料。
+  // 上櫃公司基本資料 API：作為第二條官方名稱來源。
+  // 這是 V3.2 對「台半、鈺創等只顯示股號」的主要修正。
+  for(const row of Array.isArray(tpexCompanyRows)?tpexCompanyRows:[]){
+    const code=row?.CompanyCode ?? row?.SecuritiesCompanyCode ?? row?.Code ?? row?.["公司代號"] ?? row?.["股票代號"];
+    const name=chooseCjkName(
+      row?.CompanyAbbreviation,
+      row?.CompanyShortName,
+      row?.SecuritiesCompanyName,
+      row?.ShortName,
+      row?.["公司簡稱"],
+      row?.CompanyName,
+      row?.["公司名稱"]
+    );
+    addRecord(code,name,"TPEx");
+  }
+
+  // 內建備援只補缺漏，不覆蓋官方資料。
   for(const [code,name] of Object.entries(LOCAL_NAME_MAP)){
     if(!byCode[code])addRecord(code,name,"fallback");
   }
@@ -523,6 +570,8 @@ function buildStockDirectory(twseRows,tpexRows,status={}){
     records,
     twseLoaded,
     tpexLoaded,
+    tpexQuoteLoaded,
+    tpexCompanyLoaded,
     complete:twseLoaded&&tpexLoaded,
     source:twseLoaded&&tpexLoaded?"official-complete":(twseLoaded||tpexLoaded?"official-partial":"fallback")
   };
@@ -534,19 +583,13 @@ function readStockDirectoryCache(){
     if(!raw)return null;
     const cached=JSON.parse(raw);
     if(!cached?.savedAt||Date.now()-cached.savedAt>STOCK_DIRECTORY_CACHE_MS)return null;
-    // V3.1 的 bug：只抓到上市資料也會被當成完整清單快取。
-    // V3.1.1 起，只有「上市＋上櫃都成功」的清單才允許讀取。
     if(cached.complete!==true||cached.twseLoaded!==true||cached.tpexLoaded!==true)return null;
     if(!Array.isArray(cached.records)||cached.records.length<100)return null;
 
     const byCode={};
     for(const r of cached.records){
       if(r?.code&&r?.name){
-        byCode[String(r.code)]={
-          code:String(r.code),
-          name:String(r.name),
-          market:r.market||"-"
-        };
+        byCode[String(r.code)]={code:String(r.code),name:String(r.name),market:r.market||"-"};
       }
     }
     return {
@@ -554,6 +597,8 @@ function readStockDirectoryCache(){
       records:cached.records,
       twseLoaded:true,
       tpexLoaded:true,
+      tpexQuoteLoaded:cached.tpexQuoteLoaded===true,
+      tpexCompanyLoaded:cached.tpexCompanyLoaded===true,
       complete:true,
       source:"cache-complete"
     };
@@ -564,7 +609,6 @@ function readStockDirectoryCache(){
 
 function writeStockDirectoryCache(directory){
   try{
-    // 絕對不快取只有單一市場的半套清單，避免上櫃股票被誤判成「沒有中文名稱」。
     if(!directory?.complete||!directory?.records?.length)return;
     localStorage.setItem(
       STOCK_DIRECTORY_CACHE_KEY,
@@ -573,19 +617,16 @@ function writeStockDirectoryCache(directory){
         records:directory.records,
         twseLoaded:true,
         tpexLoaded:true,
+        tpexQuoteLoaded:directory.tpexQuoteLoaded===true,
+        tpexCompanyLoaded:directory.tpexCompanyLoaded===true,
         complete:true
       })
     );
-  }catch{
-    // 瀏覽器不允許 localStorage 時，只是不快取，不影響查詢。
-  }
+  }catch{}
 }
 
 async function fetchJsonForDirectory(url){
-  const response=await fetch(url,{
-    headers:{Accept:"application/json"},
-    cache:"no-store"
-  });
+  const response=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store"});
   if(!response.ok)throw new Error(`HTTP ${response.status}`);
   const data=await response.json();
   if(!Array.isArray(data))throw new Error("股票清單格式錯誤");
@@ -605,31 +646,43 @@ async function loadStockDirectory(forceRefresh=false){
       }
     }
 
-    const [twseResult,tpexResult]=await Promise.allSettled([
+    const [twseResult,tpexQuoteResult,tpexCompanyResult]=await Promise.allSettled([
       fetchJsonForDirectory(TWSE_STOCK_DIRECTORY_URL),
-      fetchJsonForDirectory(TPEX_STOCK_DIRECTORY_URL)
+      fetchJsonForDirectory(TPEX_STOCK_DIRECTORY_URL),
+      fetchJsonForDirectory(TPEX_COMPANY_DIRECTORY_URL)
     ]);
 
-    const twseLoaded=twseResult.status==="fulfilled";
-    const tpexLoaded=tpexResult.status==="fulfilled";
-    const twseRows=twseLoaded?twseResult.value:[];
-    const tpexRows=tpexLoaded?tpexResult.value:[];
-    const directory=buildStockDirectory(twseRows,tpexRows,{twseLoaded,tpexLoaded});
+    const status={
+      twseLoaded:twseResult.status==="fulfilled",
+      tpexQuoteLoaded:tpexQuoteResult.status==="fulfilled",
+      tpexCompanyLoaded:tpexCompanyResult.status==="fulfilled"
+    };
+
+    const directory=buildStockDirectory(
+      status.twseLoaded?twseResult.value:[],
+      status.tpexQuoteLoaded?tpexQuoteResult.value:[],
+      status.tpexCompanyLoaded?tpexCompanyResult.value:[],
+      status
+    );
 
     if(directory.complete)writeStockDirectoryCache(directory);
     populateStockSuggestions(directory,true);
 
     if(!directory.complete){
-      console.warn(
-        "股票中文名稱清單僅部分載入：",
-        {twseLoaded,tpexLoaded,twseError:twseResult.reason,tpexError:tpexResult.reason}
-      );
+      console.warn("股票繁中名稱清單僅部分載入",{
+        ...status,
+        twseError:twseResult.reason,
+        tpexQuoteError:tpexQuoteResult.reason,
+        tpexCompanyError:tpexCompanyResult.reason
+      });
     }
 
     return directory;
   })().catch(err=>{
-    console.warn("股票中文名稱清單載入失敗：",err);
-    const directory=buildStockDirectory([],[],{twseLoaded:false,tpexLoaded:false});
+    console.warn("股票繁中名稱清單載入失敗：",err);
+    const directory=buildStockDirectory([],[],[],{
+      twseLoaded:false,tpexQuoteLoaded:false,tpexCompanyLoaded:false
+    });
     populateStockSuggestions(directory,true);
     return directory;
   });
@@ -679,7 +732,7 @@ async function resolveStockInput(raw){
   if(mixedCode){
     // 若目前清單是半套，而且這個代號又查不到，強制再抓一次官方清單。
     // 這可修正 V3.1「只快取上市資料，導致上櫃股票顯示 股票 5351」的問題。
-    if(!directory.byCode?.[mixedCode]&&!directory.complete){
+    if(!directory.byCode?.[mixedCode]){
       directory=await loadStockDirectory(true);
     }
 
@@ -734,6 +787,28 @@ async function resolveStockInput(raw){
   }
 
   throw new Error(`找不到「${text}」對應的上市／上櫃股票，請確認繁體中文股票簡稱或改用股票代號。`);
+}
+
+async function fetchSingleOfficialStockName(code,market){
+  try{
+    const c=String(code??"").trim();
+    if(!/^\d{4,6}$/.test(c))return null;
+    const channels=market==="TPEx"
+      ?[`otc_${c}.tw`]
+      :market==="TWSE"
+        ?[`tse_${c}.tw`]
+        :[`tse_${c}.tw`,`otc_${c}.tw`];
+    const url=`${TWSE_MIS_STOCK_INFO_URL}?ex_ch=${encodeURIComponent(channels.join("|"))}&json=1&delay=0&_=${Date.now()}`;
+    const response=await fetch(url,{headers:{Accept:"application/json"},cache:"no-store"});
+    if(!response.ok)return null;
+    const data=await response.json();
+    const rows=Array.isArray(data?.msgArray)?data.msgArray:[];
+    const row=rows.find(x=>String(x?.c??"").trim()===c)||rows[0];
+    const name=String(row?.n??row?.nf??"").trim();
+    return hasCjkText(name)?name:null;
+  }catch{
+    return null;
+  }
 }
 
 function resolveTraditionalStockName(code,apiName,directory,preferredName){
@@ -3040,7 +3115,534 @@ function localizeBeginnerReportText(text){
   return out;
 }
 
-function buildReportText(report){
+
+function marketNameZh(market){
+  return market==="TWSE"?"上市市場":market==="TPEx"?"上櫃市場":String(market||"-");
+}
+
+function sourceNameZh(source){
+  const s=String(source||"");
+  if(/TWSE Official/i.test(s))return "臺灣證券交易所";
+  if(/Yahoo Finance/i.test(s))return "公開市場行情資料";
+  return s||"-";
+}
+
+function getDailyMA20Info(report){
+  const d=report?.structure?.dailyMA20||{};
+  return {
+    value:n(d.latest),
+    previous:n(d.previous),
+    slope:n(d.slopePct),
+    direction:d.direction?.label||null,
+    icon:d.direction?.icon||"🟡"
+  };
+}
+
+function lineSection(lines,title){
+  lines.push("━━━━━━━━━━━━━━━━━━");
+  lines.push(`【${title}】`);
+  lines.push("━━━━━━━━━━━━━━━━━━");
+  lines.push("");
+}
+
+function nearZoneText(price,pct=1.5){
+  const p=n(price);
+  if(p===null)return "-";
+  return `${fmt(p*(1-pct/100))}～${fmt(p*(1+pct/100))} 元`;
+}
+
+function currentStrategyState(report){
+  const fib=report?.fib||{};
+  const t=getTacticalInfo(report);
+  const ma=getDailyMA20Info(report);
+  const fixed=getFixedTargetInfo(report.entry,report.base,report.close);
+  const rr=getRiskRewardInfo(fib);
+  const rsi=n(report.dailyRsi);
+  const fibDist=signedDistancePct(fib.target1618,report.close);
+  const fixedDist=fixed?.next?signedDistancePct(fixed.next.p,report.close):null;
+  const breakoutVol=n(t.fibBreakoutVolume ?? t.tacticalBreakoutVolume);
+  const confirmed=fib.status==="confirmed";
+  const forming=fib.status==="forming";
+  const hasAB=n(fib.A)!==null&&n(fib.B)!==null;
+  const tacticalActive=!!t.tacticalActive;
+  const overheated=rsi!==null&&rsi>=80;
+  const poorRR=rr&&rr.ratio<1;
+  const nearTarget=confirmed&&fibDist!==null&&fibDist<=5;
+  const nearFixed=fixedDist!==null&&fixedDist<=5;
+  const addQuality=confirmed&&!overheated&&!poorRR&&!nearTarget&&breakoutVol!==null&&breakoutVol>=1.2;
+
+  let stateIcon="➖",stateLabel="盤整等待",stateNote="等待新的有效價格結構。";
+  if(t?.subtype?.label){
+    stateIcon=t.subtype.icon||t.mode?.icon||stateIcon;
+    stateLabel=t.subtype.label;
+    stateNote=t.subtype.description||stateNote;
+  }else if(confirmed){
+    stateIcon="🟢";stateLabel="費波那契N字已確認";stateNote="前波高點已正式確認突破。";
+  }else if(forming){
+    stateIcon="🟡";stateLabel="N字形成中";stateNote="起漲點、前波高點、回檔低點已形成，等待正式突破前高。";
+  }
+
+  return {fib,t,ma,fixed,rr,rsi,fibDist,fixedDist,breakoutVol,confirmed,forming,hasAB,tacticalActive,overheated,poorRR,nearTarget,nearFixed,addQuality,stateIcon,stateLabel,stateNote};
+}
+
+function buildStrategyQuickLines(report,s){
+  const lines=[];
+  lines.push(`${s.stateIcon} 目前盤態：${s.stateLabel}`);
+  if(s.t?.marketPhase?.label)lines.push(`📈 市場結構：${s.t.marketPhase.label}`);
+  lines.push("");
+  lines.push(`${report.entry===true?"🟢":"🔴"} 中長期月線條件：${report.entry===true?"成立":"未成立"}`);
+
+  if(s.confirmed){
+    lines.push(`📐 費波那契N字：已確認｜前波高點 ${fmt(s.fib.B)} 元`);
+    if(s.t.fibBreakoutVolume!==null)lines.push(`${getVolumeGrade(s.t.fibBreakoutVolume).icon} 正式突破量：${fmt(s.t.fibBreakoutVolume,2)} 倍｜${getVolumeGrade(s.t.fibBreakoutVolume).label}`);
+    if(s.t.fibThreeDay?.status?.label)lines.push(`${s.t.fibThreeDay.status.icon||"🟢"} 三日確認：${s.t.fibThreeDay.status.label}`);
+  }else if(s.forming){
+    lines.push(`🟡 費波那契N字：形成中｜等待收盤突破前波高點 ${fmt(s.fib.B)} 元`);
+  }else if(s.hasAB){
+    lines.push(`⚪ 費波那契N字：尚未形成｜目前只有起漲點 ${fmt(s.fib.A)} → 前波高點 ${fmt(s.fib.B)}，等待有效回檔低點`);
+  }else{
+    lines.push("⚪ 費波那契N字：目前沒有新的完整有效結構");
+  }
+
+  if(s.tacticalActive){
+    lines.push(`🔥 戰術N字：已翻紅｜${datefmt(s.t.tacticalActive.breakoutDate)} 收盤 ${fmt(s.t.tacticalActive.breakoutClose)} > 前三高 ${fmt(s.t.tacticalActive.neckline)}`);
+  }else{
+    lines.push("⚪ 戰術N字：目前沒有有效的新突破事件");
+  }
+
+  lines.push(`📍 現價：${fmt(report.close)} 元`);
+  if(s.ma.value!==null)lines.push(`${s.ma.icon} 日20MA：${fmt(s.ma.value)} 元｜${s.ma.slope!==null?`近5日斜率 ${fmtSignedPct(s.ma.slope)}`:"斜率-"}${s.ma.direction?`｜${s.ma.direction}`:""}`);
+  lines.push(`${getRsiReportInfo(report.dailyRsi).icon} 日 RSI 5T：${fmt(report.dailyRsi)}｜${getRsiReportInfo(report.dailyRsi).label}`);
+  if(s.fixed?.next){
+    const info=getFixedTargetDistanceInfo(s.fixed.next,report.close);
+    lines.push(`${info?.icon||"🎯"} 下一固定倍數：${s.fixed.next.m}×＝${fmt(s.fixed.next.p)} 元${info?`｜距現價 ${fmtSignedPct(info.distance)}`:""}`);
+  }
+  if(s.confirmed&&s.rr){
+    lines.push(`${s.rr.icon} 剩餘風險報酬：1：${fmt(s.rr.ratio,2)}｜${s.rr.label}`);
+  }
+  lines.push("");
+
+  if(s.confirmed&&(s.poorRR||s.overheated||s.nearTarget||s.nearFixed)){
+    lines.push("👤 未持有者：⚠️ 目前不宜只因趨勢強就直接追價；優先等健康回測或新的轉強結構。");
+    lines.push("👤 已持有者：🟢 原有結構仍可續抱觀察，但暫不積極加碼，並開始規劃分批獲利與風控。");
+  }else if(s.confirmed){
+    lines.push("👤 未持有者：🟡 可等待前波高點附近健康回測，再評估分批布局；不以單日急漲作追價理由。");
+    lines.push(`👤 已持有者：${s.addQuality?"🟢 結構品質較佳，可等待回測守住／再攻時評估加碼。":"🟢 可續抱觀察；是否加碼仍要再看量能、RSI與風險報酬。"}`);
+  }else if(s.tacticalActive){
+    lines.push("👤 未持有者：⚠️ 戰術面已發動，但完整費波那契N字尚未確認；不宜因「強勢」直接追高，優先等回測。");
+    lines.push("👤 已持有者：🟢 戰術多方狀態可續抱觀察；完整N字尚未形成前，暫不積極追價加碼。");
+  }else{
+    lines.push("👤 未持有者：➖ 先等待，不急著猜低點；先看日20MA與戰術突破是否重新轉強。");
+    lines.push("👤 已持有者：🟡 月線若仍成立可續抱觀察，但短線未確認前暫不加碼。");
+  }
+  return lines;
+}
+
+function buildUnheldStrategyLines(report,s){
+  const lines=[];
+  if(report.entry!==true){
+    lines.push("🔴 目前月線波段條件未成立，未持有者以等待為主，不把短線反彈當成波段布局依據。");
+    return lines;
+  }
+
+  if(s.confirmed){
+    const B=n(s.fib.B),def=n(s.t.fibDefense?.level),support=n(s.fib.retracement?.["0.618"]),stop=n(s.fib.retracement?.["0.764"]);
+    if(s.poorRR||s.overheated||s.nearTarget||s.nearFixed){
+      lines.push("⚠️ 現價不是優先追價位置。");
+      const reasons=[];
+      if(s.poorRR)reasons.push(`剩餘風險報酬僅 1：${fmt(s.rr.ratio,2)}`);
+      if(s.overheated)reasons.push(`RSI 5T＝${fmt(s.rsi)} 已過熱`);
+      if(s.nearFixed&&s.fixed?.next)reasons.push(`距 ${s.fixed.next.m}× 固定關卡只剩 ${fmtSignedPct(s.fixedDist)}`);
+      if(s.nearTarget)reasons.push(`距1.618只剩 ${fmtSignedPct(s.fibDist)}`);
+      if(reasons.length)lines.push(`原因：${reasons.join("、")}。`);
+    }
+    lines.push("");
+    if(B!==null){
+      lines.push(`🟡 第一布局觀察：前波高點 ${fmt(B)} 元附近（約 ${nearZoneText(B)}）`);
+      lines.push("條件：回檔量縮／正常量、完整日線收盤守住、沒有放量長黑，之後再重新上攻。符合時才可評估小部位、分批布局；不是碰到價位就直接進場。");
+    }
+    if(def!==null){
+      lines.push(`🛡️ 短線防守參考：${fmt(def)} 元。若明顯失守，先不要急著接，等待重新站回前波高點。`);
+    }
+    if(support!==null&&stop!==null){
+      lines.push(`📐 深層結構：0.618支撐 ${fmt(support)} 元｜0.764風控 ${fmt(stop)} 元。這是完整N字的波段結構，不等同短線買點。`);
+    }
+    return lines;
+  }
+
+  if(s.forming){
+    const recovery=getRecoveryInfo(s.fib,report.close);
+    const nextRecovery=recovery?.levels?.find(x=>!x.reached);
+    lines.push("🟡 N字已形成但尚未正式突破前高，1.618仍只是預估值。");
+    if(nextRecovery)lines.push(`📍 第一轉強觀察：${nextRecovery.key} 回升位 ${fmt(nextRecovery.price)} 元｜${nextRecovery.label}。`);
+    lines.push(`📐 正式確認門檻：完整日線收盤 > 前波高點 ${fmt(s.fib.B)} 元。`);
+    lines.push("未持有者優先等回升位階改善或正式突破前高，不把形成中的1.618當作立即進場理由。");
+    return lines;
+  }
+
+  if(s.hasAB&&s.tacticalActive){
+    const B=n(s.fib.B),ma=s.ma.value,neck=n(s.t.tacticalActive?.neckline),def=n(s.t.tacticalDefense?.level ?? s.t.tacticalActive?.defense);
+    lines.push("⚠️ 戰術N字已轉強，但完整費波那契N字還缺有效回檔低點，因此現在不適合用不存在的1.618追價。");
+    if(B!==null)lines.push(`🟡 第一布局觀察：前波高點 ${fmt(B)} 元附近。回測量縮、收盤守住、再度轉強時，可評估小部位分批布局。`);
+    if(ma!==null)lines.push(`🟡 第二觀察：日20MA ${fmt(ma)} 元${s.ma.slope!==null?`（斜率 ${fmtSignedPct(s.ma.slope)}）`:""}。守住且均線轉平／向上，整理品質較好。`);
+    if(neck!==null)lines.push(`🔥 戰術頸線：${fmt(neck)} 元。收盤跌回其下，原戰術突破品質下降。`);
+    if(def!==null)lines.push(`🚨 戰術防守：${fmt(def)} 元。明顯失守時不宜再以「強勢」理由追價。`);
+    return lines;
+  }
+
+  if(s.hasAB){
+    if(s.ma.value!==null)lines.push(`🟡 第一轉強觀察：日20MA ${fmt(s.ma.value)} 元。完整日線站回且量能恢復正常，代表短線先止弱。`);
+    lines.push("🔥 第二關：等待新的「前三高頸線」被完整日線收盤突破，才算戰術N字先轉強。");
+    lines.push(`📐 完整N字：先形成有效回檔低點，再收盤突破前波高點 ${fmt(s.fib.B)} 元，才正式啟用0.618／0.764／1.618。`);
+    return lines;
+  }
+
+  lines.push("➖ 目前沒有足夠的短線結構可規劃明確布局價；先看日20MA、前三高戰術突破與新的費波那契N字是否形成。");
+  return lines;
+}
+
+function buildHeldStrategyLines(report,s){
+  const lines=[];
+  if(report.entry!==true){
+    lines.push("🔴 月線波段條件已失效。已持有者應提高中長期風控，不再以「建倉區」邏輯增加部位。");
+    return lines;
+  }
+
+  if(s.confirmed){
+    lines.push(`🟢 目前費波那契N字仍有效，${s.t?.subtype?.label?`盤態為${s.t.subtype.label}`:"可續抱觀察"}。`);
+    if(s.poorRR||s.overheated||s.nearFixed||s.nearTarget){
+      lines.push("⚠️ 目前較適合「續抱＋規劃分批獲利」，不屬於積極追價加碼位置。");
+    }else if(s.addQuality){
+      lines.push("🟢 結構與量價品質較佳；仍建議等待前波高點回測守住再攻，或整理後新的帶量突破，再評估加碼。");
+    }else{
+      lines.push("🟡 可續抱觀察，但加碼要等回測守住／再攻、量能與位置條件更完整。 ");
+    }
+    if(n(s.fib.B)!==null)lines.push(`🛡️ 第一結構觀察：前波高點 ${fmt(s.fib.B)} 元。收盤跌回其下，突破品質下降，先停止加碼。`);
+    if(n(s.t.fibDefense?.level)!==null)lines.push(`🛡️ 短線防守：${fmt(s.t.fibDefense.level)} 元。明顯失守代表短線結構進一步轉弱。`);
+    if(n(s.fib.retracement?.["0.764"])!==null)lines.push(`🚨 正式深度風控：0.764＝${fmt(s.fib.retracement["0.764"])} 元；完整日線收盤跌破，依核心規則正式失敗。`);
+    return lines;
+  }
+
+  if(s.tacticalActive){
+    lines.push("🟢 戰術多方狀態仍可續抱觀察，但完整費波那契N字尚未形成，暫不積極追價加碼。");
+    if(n(s.fib.B)!==null)lines.push(`🟡 第一回測觀察：${fmt(s.fib.B)} 元附近。`);
+    if(s.ma.value!==null)lines.push(`🟡 日20MA：${fmt(s.ma.value)} 元｜${s.ma.direction||"方向待確認"}。`);
+    if(n(s.t.tacticalActive.neckline)!==null)lines.push(`🔥 戰術頸線：${fmt(s.t.tacticalActive.neckline)} 元；收盤跌回其下，戰術突破品質下降。`);
+    if(n(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense)!==null)lines.push(`🚨 戰術防守：${fmt(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense)} 元；失守時提高風控。`);
+    return lines;
+  }
+
+  lines.push("🟡 月線若仍成立可續抱觀察，但短線目前沒有有效戰術突破／完整N字，暫不加碼。 ");
+  if(s.ma.value!==null)lines.push(`第一步先看日20MA ${fmt(s.ma.value)} 元能否重新站回／守住。`);
+  if(n(s.fib.A)!==null)lines.push(`🚨 候選起漲點 ${fmt(s.fib.A)} 元：若後續最低價跌破，目前候選結構失效。`);
+  return lines;
+}
+
+function buildProfitPlanLines(report,s){
+  const lines=[];
+  const close=n(report.close);
+  if(s.confirmed&&n(s.fib.target1618)!==null){
+    const target=n(s.fib.target1618);
+    let future=s.fixed?.targetData?.filter(x=>x.p>close&&x.p<target*1.03).slice(0,5)||[];
+    if(s.fixed?.next&&s.fixedDist!==null&&s.fixedDist<=5){
+      lines.push(`⚠️ 第一近期獲利／壓力觀察：${s.fixed.next.m}×＝${fmt(s.fixed.next.p)} 元（距現價 ${fmtSignedPct(s.fixedDist)}）。`);
+      lines.push("接近時若出現RSI升高、爆量不漲、長上影或隔日跌回關卡，可評估小部分分批落袋；若量價健康站穩，不必因碰到固定倍數就全部處理。");
+      lines.push("");
+      future=future.filter(x=>Math.abs(x.p-s.fixed.next.p)>0.000001);
+    }
+    if(future.length){
+      lines.push("🎯 趨勢延伸中途關卡：");
+      for(const x of future)lines.push(`• ${x.m}×＝${fmt(x.p)} 元`);
+      lines.push("每到一個價格階段，重新檢查RSI、量能、長上影、短線防守與剩餘風險報酬。");
+      lines.push("");
+    }
+    const below=s.fixed?.targetData?.filter(x=>x.p>close&&x.p<=target).slice(-1)[0];
+    if(below&&Math.abs(target-below.p)/target<=0.08){
+      lines.push(`🏆 主要獲利觀察區：約 ${fmt(below.p)}～${fmt(target)} 元（${below.m}×固定關卡＋費波那契1.618）。`);
+    }else{
+      lines.push(`🏆 費波那契1.618主要目標：${fmt(target)} 元。距目標5%以內時進入主要獲利觀察區。`);
+    }
+    lines.push("若進入主要獲利區又同時RSI≥80、爆量長上影或新高後收弱，可提高分批獲利比重。最高價達1.618時，本組N字主要目標完成。 ");
+    return lines;
+  }
+
+  if(s.hasAB){
+    const B=n(s.fib.B);
+    if(B!==null&&close!==null&&B>close){
+      lines.push(`🎯 目前第一明確壓力／獲利觀察：前波高點 ${fmt(B)} 元（距現價 ${fmtSignedPct(signedDistancePct(B,close))}）。`);
+      lines.push("若接近前高時RSI過熱、量縮、長上影或多次站不上，已有獲利者可評估分批落袋。若未來形成有效回檔低點後帶量突破前高，再改用正式1.272／1.382／1.618管理獲利。");
+    }else{
+      lines.push("⚪ 現價已高於前波高點，但因有效回檔低點尚未形成，目前沒有新的正式費波那契1.618目標。");
+      lines.push("已有獲利者先用「RSI≥80＋爆量不漲／長上影／新高後收弱」作分批獲利警戒；不要硬設定不存在的正式N字停利價。 ");
+    }
+  }else{
+    lines.push("⚪ 目前沒有新的正式費波那契目標；停利先看前高壓力、固定倍數是否接近，以及RSI／量價是否過熱。 ");
+  }
+  if(s.fixed?.next&&s.fixedDist!==null&&s.fixedDist>50){
+    lines.push(`📌 固定倍數下一關 ${fmt(s.fixed.next.p)} 元距現價 ${fmtSignedPct(s.fixedDist)}，目前太遠，只作中長期參考，不當短線停利價。`);
+  }
+  return lines;
+}
+
+function buildWeaknessPlanLines(report,s){
+  const lines=[];
+  if(s.confirmed){
+    const B=n(s.fib.B),def=n(s.t.fibDefense?.level),stop=n(s.fib.retracement?.["0.764"]),A=n(s.fib.A);
+    if(B!==null)lines.push(`⚠️ 第一級｜完整日線收盤 < ${fmt(B)} 元（前波高點）：突破品質下降，停止加碼。`);
+    if(def!==null)lines.push(`🔴 第二級｜明顯失守 ${fmt(def)} 元（突破日線防守）：短線結構進一步轉弱。`);
+    if(stop!==null)lines.push(`💀 正式失敗｜1.618完成以前，完整日線收盤 < ${fmt(stop)} 元（0.764）＝本組N字正式失敗。`);
+    if(A!==null)lines.push(`💀 正式失敗｜1.618完成以前，日線最低價 < ${fmt(A)} 元（起漲點）＝本組N字正式失敗。`);
+  }else if(s.tacticalActive){
+    const B=n(s.fib.B),ma=s.ma.value,neck=n(s.t.tacticalActive.neckline),def=n(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense),A=n(s.fib.A);
+    if(B!==null)lines.push(`🟡 強勢降溫｜回到前波高點 ${fmt(B)} 元附近：不一定轉空，但快速上攻開始降溫。`);
+    if(ma!==null)lines.push(`⚠️ 短線轉弱｜跌破日20MA ${fmt(ma)} 元且均線仍向下：短線結構評價下降。`);
+    if(neck!==null)lines.push(`🔴 戰術破壞｜完整日線收盤 < ${fmt(neck)} 元（前三高頸線）：原戰術突破品質明顯下降。`);
+    if(def!==null)lines.push(`💀 戰術防守失守｜明顯跌破 ${fmt(def)} 元：原強勢盤態大幅轉弱。`);
+    if(A!==null)lines.push(`🔴 候選結構失效｜形成有效回檔低點以前，最低價跌破起漲點 ${fmt(A)} 元：目前候選結構失效。`);
+  }else{
+    if(s.ma.value!==null)lines.push(`⚠️ 短線：先看日20MA ${fmt(s.ma.value)} 元；站不上或跌破且量價轉弱，維持盤整／偏弱。`);
+    if(n(s.fib.A)!==null)lines.push(`🔴 候選N字失效：最低價跌破起漲點 ${fmt(s.fib.A)} 元。`);
+  }
+  if(n(report.latestMA)!==null)lines.push(`🔴 中長期月線失效：必須看「月線收盤」跌破月20MA ${fmt(report.latestMA)} 元，不是盤中碰到就算。`);
+  return lines;
+}
+
+function buildPriceMapLines(report,s){
+  const items=[];
+  const add=(icon,price,label)=>{const p=n(price);if(p!==null)items.push({icon,price:p,label});};
+  if(s.confirmed){
+    add("🏆",s.fib.target1618,"費波那契1.618主目標");
+    const future=s.fixed?.targetData?.filter(x=>x.p>n(report.close)&&x.p<n(s.fib.target1618))||[];
+    for(const x of future.slice(0,4))add("🎯",x.p,`${x.m}×固定倍數關卡`);
+    add("📍",report.close,"目前收盤價");
+    add("🛡️",s.fib.B,"前波高點／盤堅核心");
+    add("🛡️",s.t.fibDefense?.level,"突破日線短線防守");
+    add("🟡",s.ma.value,"日20MA");
+    add("🛡️",s.fib.retracement?.["0.618"],"費波那契0.618支撐");
+    add("🚨",s.fib.retracement?.["0.764"],"費波那契0.764深度風控");
+    add("🔴",s.fib.A,"起漲點／正式失敗條件");
+  }else if(s.tacticalActive){
+    add("📍",report.close,"目前收盤價");
+    add("🟡",s.fib.B,"前波高點／第一回測觀察");
+    add("🟡",s.ma.value,"日20MA");
+    add("🔥",s.t.tacticalActive.neckline,"戰術突破頸線");
+    add("🚨",s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense,"戰術軋空低／防守");
+    add("🔴",s.fib.A,"費波那契候選起漲點");
+  }else{
+    if(n(s.fib.B)!==null)add("🎯",s.fib.B,"前波高點／未來正式確認門檻");
+    add("🟡",s.ma.value,"日20MA／短線第一轉強觀察");
+    add("📍",report.close,"目前收盤價");
+    add("🚨",s.fib.A,"候選起漲點／跌破則失效");
+    add("🔴",report.latestMA,"月20MA／看月線收盤是否失效");
+  }
+  const seen=new Set();
+  return items.filter(x=>{
+    const k=`${x.price.toFixed(4)}|${x.label}`;
+    if(seen.has(k))return false;seen.add(k);return true;
+  }).sort((a,b)=>b.price-a.price).map(x=>`${x.icon} ${fmt(x.price)} 元｜${x.label}`);
+}
+
+function buildAddRulesLines(report,s){
+  const lines=[];
+  if(s.confirmed){
+    lines.push("🟢 可評估加碼的完整條件：");
+    lines.push("• 費波那契N字仍為已確認");
+    lines.push("• 回測前波高點守住後再攻，或整理後再突破新的前三高");
+    lines.push("• 突破／再攻量能至少正常，理想為 ≥1.20倍");
+    lines.push("• RSI < 80");
+    lines.push("• 距1.618仍大於5%");
+    lines.push("• 剩餘風險報酬至少約1：1以上");
+    lines.push("");
+    if(s.addQuality)lines.push("🟢 目前條件未出現明顯的『禁止加碼』訊號，但仍優先等回測守住／再攻，不追單日急漲。");
+    else lines.push("⚠️ 目前至少有一項條件不理想，因此暫不列為積極加碼位置。 ");
+  }else if(s.tacticalActive){
+    lines.push("⚠️ 戰術已轉強，但完整費波那契N字尚未形成；加碼優先等回測守住後再攻，或等有效回檔低點形成後正式突破前波高點。 ");
+  }else{
+    lines.push("➖ 目前沒有完整短線多方確認，不列出主動加碼訊號；先等戰術突破或完整N字確認。 ");
+  }
+  lines.push("");
+  lines.push("❌ 即使股價仍強，下列情況不宜追價加碼：RSI≥80、距1.618≤5%、剩餘風險報酬<1：1、量縮突破<0.80倍、三日確認失敗、高檔爆量長上影、突破後快速跌回關鍵價。 ");
+  return lines;
+}
+
+function buildScenarioV32Lines(report,s){
+  const lines=[];
+  if(s.confirmed){
+    const B=n(s.fib.B),def=n(s.t.fibDefense?.level);
+    lines.push("🟢 劇本一｜續強：量能正常～放大、價格維持前波高點上方、沒有高檔爆量長上影 → 已持有續抱；未持有不因單日創高直接追。 ");
+    if(B!==null)lines.push(`🛡️ 劇本二｜健康回測：回到 ${fmt(B)} 元附近、回檔量縮、收盤守住、之後再攻 → 未持有可評估回測型布局；已持有可重新觀察加碼條件。`);
+    lines.push("➖ 劇本三｜高檔盤整：無法持續創高、量能縮小、RSI降溫，但未破核心支撐 → 未持有等待；已持有續抱但不加碼。 ");
+    if(B!==null||def!==null)lines.push(`⚠️ 劇本四｜轉弱：${B!==null?`收盤跌破 ${fmt(B)} 元前波高點`:"跌回關鍵前高下方"}${def!==null?`，或明顯失守 ${fmt(def)} 元短線防守`:""} → 未持有暫不進場；已持有停止加碼並提高風控。`);
+  }else if(s.tacticalActive){
+    const B=n(s.fib.B),ma=s.ma.value,neck=n(s.t.tacticalActive.neckline),def=n(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense);
+    lines.push("🔥 劇本一｜強勢續攻：價格續創高、量能正常或增加、RSI仍低於80、沒有長上影轉弱 → 已持有續抱；未持有不因創高就追。 ");
+    if(B!==null)lines.push(`🛡️ 劇本二｜健康回測：回到 ${fmt(B)} 元附近量縮守住再攻 → 未持有可開始評估回測型布局；已持有觀察重新加碼條件。`);
+    if(ma!==null&&neck!==null)lines.push(`➖ 劇本三｜整理：在日20MA ${fmt(ma)} 元與現價附近震盪、量縮、但未跌破戰術頸線 ${fmt(neck)} 元 → 強勢降溫為整理，未持有等待、已持有不追價加碼。`);
+    if(neck!==null)lines.push(`⚠️ 劇本四｜戰術轉弱：收盤跌破 ${fmt(neck)} 元${def!==null?`，或明顯失守 ${fmt(def)} 元防守`:""} → 原戰術突破品質明顯下降。`);
+  }else{
+    if(s.ma.value!==null)lines.push(`🟡 劇本一｜止弱：收盤重新站上日20MA ${fmt(s.ma.value)} 元，且量能恢復正常 → 短線先止弱，仍不等於完整N字。`);
+    lines.push("🔥 劇本二｜戰術轉強：完整日線收盤突破當時前三高，且量能≥1.20倍 → 可進入小部位布局／加碼評估。 ");
+    lines.push("➖ 劇本三｜繼續盤整：沒有突破前三高、量能縮、價格反覆整理 → 未持有等待；已持有月線仍成立時續抱但不加碼。 ");
+    if(n(s.fib.A)!==null)lines.push(`🔴 劇本四｜候選結構失效：最低價跌破起漲點 ${fmt(s.fib.A)} 元 → 等待新的價格結構。`);
+  }
+  return lines;
+}
+
+function buildTechnicalV32Lines(report,s){
+  const lines=[];
+  lines.push(`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
+  lines.push(`目前月線：${fmt(report.latestMonthClose)} 元｜月20MA：${fmt(report.latestMA)} 元`);
+  lines.push("");
+  lines.push(`【日 RSI 5T】${fmt(report.dailyRsi)}｜${getRsiReportInfo(report.dailyRsi).label}`);
+  if(s.ma.value!==null)lines.push(`【日20MA】${fmt(s.ma.value)} 元｜近5日斜率 ${s.ma.slope!==null?fmtSignedPct(s.ma.slope):"-"}｜${s.ma.direction||"-"}`);
+  const v=getVolumeReportInfo(report);
+  if(v.latestRatio!==null)lines.push(`【最新相對量】${fmt(v.latestRatio,2)} 倍｜${v.latestGrade.label}`);
+  lines.push("");
+  lines.push("【費波那契N字】");
+  if(n(s.fib.A)!==null)lines.push(`起漲點：${fmt(s.fib.A)} 元${s.fib.ADate?`（${datefmt(s.fib.ADate)}）`:""}`);
+  if(n(s.fib.B)!==null)lines.push(`前波高點：${fmt(s.fib.B)} 元${s.fib.BDate?`（${datefmt(s.fib.BDate)}）`:""}`);
+  if(n(s.fib.C)!==null)lines.push(`回檔低點：${fmt(s.fib.C)} 元${s.fib.CDate?`（${datefmt(s.fib.CDate)}）`:""}`);else if(s.hasAB)lines.push("回檔低點：尚未形成");
+  lines.push(`狀態：${s.confirmed?"🟢 已確認":s.forming?"🟡 形成中":"⚪ 尚未形成"}`);
+  if(s.confirmed){
+    lines.push(`0.618支撐：${fmt(s.fib.retracement?.["0.618"])} 元｜0.764風控：${fmt(s.fib.retracement?.["0.764"])} 元｜1.618目標：${fmt(s.fib.target1618)} 元`);
+    if(s.rr)lines.push(`剩餘風險報酬：1：${fmt(s.rr.ratio,2)}｜${s.rr.label}`);
+  }else if(s.forming){
+    lines.push(`1.618預估目標：${fmt(s.fib.target1618)} 元（尚未正式確認）`);
+  }else{
+    lines.push("目前不產生新的正式0.618／0.764／1.618。 ");
+  }
+  if(s.tacticalActive){
+    lines.push("");
+    lines.push("【戰術N字】");
+    lines.push(`突破日：${datefmt(s.t.tacticalActive.breakoutDate)}｜收盤 ${fmt(s.t.tacticalActive.breakoutClose)} > 前三高 ${fmt(s.t.tacticalActive.neckline)}`);
+    if(s.t.tacticalBreakoutVolume!==null)lines.push(`突破量：${fmt(s.t.tacticalBreakoutVolume,2)} 倍｜${getVolumeGrade(s.t.tacticalBreakoutVolume).label}`);
+    if(n(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense)!==null)lines.push(`戰術防守：${fmt(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense)} 元`);
+  }
+  if(s.fixed?.next){
+    lines.push("");
+    lines.push(`【固定倍數】下一關：${s.fixed.next.m}×＝${fmt(s.fixed.next.p)} 元｜距現價 ${fmtSignedPct(signedDistancePct(s.fixed.next.p,report.close))}`);
+  }
+  return lines;
+}
+
+function buildHistoryV32Lines(fib){
+  const lines=[];
+  const failed=fib?.lastFailedFib,completed=fib?.lastCompletedFib;
+  if(!failed&&!completed)return lines;
+  lines.push("⚠️ 以下只作歷史回顧，不是目前訊號。 ");
+  if(failed){
+    lines.push(`🔴 上一組失敗：${fmt(failed.A)}／${fmt(failed.B)}／${fmt(failed.C)}｜費波那契確認 ${datefmt(failed.fibBreakoutDate||failed.breakoutDate)}｜失敗 ${datefmt(failed.failedDate)}`);
+  }
+  if(completed){
+    lines.push(`🏆 上一組完成：${fmt(completed.A)}／${fmt(completed.B)}／${fmt(completed.C)}｜🔥戰術突破 ${datefmt(completed.tacticalBreakoutDate)}｜📐前高確認 ${datefmt(completed.fibBreakoutDate||completed.breakoutDate)}｜1.618 ${fmt(completed.target1618)}｜完成 ${datefmt(completed.completedDate)}`);
+  }
+  return lines;
+}
+
+function buildReportTextV32(report){
+  if(!report)return "";
+  const s=currentStrategyState(report);
+  const lines=[];
+  lines.push("📘 石頭少爺分析助手｜V3.2 新手實戰・動態策略報告");
+  lines.push(`報告產出時間：${reportGeneratedAt()}`);
+  lines.push("");
+  lines.push(`股票：${formatStockNameWithCode(report.name,report.code)}｜${marketNameZh(report.market)}`);
+  lines.push(`最新交易日：${datefmt(report.closeDate)}｜資料來源：${sourceNameZh(report.source)}`);
+  lines.push(`📍 最新收盤價：${fmt(report.close)} 元`);
+  lines.push("");
+
+  lineSection(lines,"🚦 先看結論｜現在該怎麼做？");
+  lines.push(...buildStrategyQuickLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"👤 未持有者｜現在怎麼布局？");
+  lines.push(...buildUnheldStrategyLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"👤 已持有者｜現在怎麼做？");
+  lines.push(...buildHeldStrategyLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"🚀 什麼時候可以評估加碼？");
+  lines.push(...buildAddRulesLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"💰 什麼時候開始考慮獲利了結？");
+  lines.push(...buildProfitPlanLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"⚠️ 什麼時候轉弱／落入盤整？");
+  lines.push("➖ 盤整：價格不再持續創高、量能縮小、RSI降溫，且沒有新的突破事件；盤整不等於看空，只代表上攻速度暫停。 ");
+  lines.push("");
+  lines.push(...buildWeaknessPlanLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"🗺️ 價格作戰地圖");
+  lines.push(...buildPriceMapLines(report,s));
+  lines.push("");
+
+  lineSection(lines,"📅 下一交易日｜四種白話劇本");
+  lines.push(...buildScenarioV32Lines(report,s));
+  lines.push("");
+
+  lineSection(lines,"📊 詳細技術資料");
+  lines.push(...buildTechnicalV32Lines(report,s));
+  lines.push("");
+
+  const hist=buildHistoryV32Lines(s.fib);
+  if(hist.length){
+    lineSection(lines,"🕘 歷史N字｜僅供回顧");
+    lines.push(...hist);
+    lines.push("");
+  }
+
+  lineSection(lines,"🔑 新手最後只要記住");
+  if(s.confirmed){
+    lines.push(`📍 現價 ${fmt(report.close)} 元`);
+    if(n(s.fib.B)!==null)lines.push(`🛡️ 前波高點 ${fmt(s.fib.B)} 元｜突破結構核心`);
+    if(n(s.t.fibDefense?.level)!==null)lines.push(`🛡️ 短線防守 ${fmt(s.t.fibDefense.level)} 元`);
+    if(n(s.fib.target1618)!==null)lines.push(`🏆 1.618主目標 ${fmt(s.fib.target1618)} 元`);
+    if(n(s.fib.retracement?.["0.764"])!==null)lines.push(`🚨 0.764風控 ${fmt(s.fib.retracement["0.764"])} 元`);
+  }else if(s.tacticalActive){
+    lines.push(`📍 現價 ${fmt(report.close)} 元`);
+    if(n(s.fib.B)!==null)lines.push(`🟡 前波高點 ${fmt(s.fib.B)} 元｜第一回測觀察`);
+    if(s.ma.value!==null)lines.push(`🟡 日20MA ${fmt(s.ma.value)} 元`);
+    lines.push(`🔥 戰術頸線 ${fmt(s.t.tacticalActive.neckline)} 元`);
+    if(n(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense)!==null)lines.push(`🚨 戰術防守 ${fmt(s.t.tacticalDefense?.level ?? s.t.tacticalActive.defense)} 元`);
+  }else{
+    lines.push(`📍 現價 ${fmt(report.close)} 元`);
+    if(s.ma.value!==null)lines.push(`🟡 日20MA ${fmt(s.ma.value)} 元｜短線第一轉強觀察`);
+    if(n(s.fib.B)!==null)lines.push(`🎯 前波高點 ${fmt(s.fib.B)} 元｜未來完整N字確認門檻`);
+    if(n(s.fib.A)!==null)lines.push(`🚨 起漲點 ${fmt(s.fib.A)} 元｜候選結構失效線`);
+  }
+  lines.push("");
+
+  lineSection(lines,"🧭 石頭少爺最後判讀");
+  if(s.confirmed&&(s.poorRR||s.overheated||s.nearFixed||s.nearTarget)){
+    lines.push(`${s.stateIcon} 目前屬於「趨勢／結構偏強，但位置吸引力下降」。`);
+    lines.push("👤 未持有者：優先等回測，不因強勢直接追價。");
+    lines.push("👤 已持有者：原有結構仍可續抱觀察，但暫不積極加碼，並開始規劃分批獲利。 ");
+  }else if(s.confirmed){
+    lines.push(`${s.stateIcon} 費波那契N字已確認，方向與結構仍偏強。`);
+    lines.push("未持有者以健康回測布局為優先；已持有者續抱，回測守住再攻且量價／RSI／風險報酬合理時再評估加碼。 ");
+  }else if(s.tacticalActive){
+    lines.push(`${s.stateIcon} 戰術面已轉強，但完整費波那契N字還沒形成。`);
+    lines.push("未持有者不要因盤態名稱追高；已持有者可續抱觀察，優先守戰術頸線／防守，等待回測或完整N字。 ");
+  }else{
+    lines.push(`${s.stateIcon} 現在重點是「等待市場自己給出轉強訊號」，不是猜最低點。`);
+    lines.push("未持有者先等日20MA／前三高突破；已持有者月線仍成立時續抱觀察，但短線未確認前不加碼。 ");
+  }
+  lines.push("");
+  lines.push("⚠️ 技術分析僅供研究與決策參考。布局、加碼、續抱、分批獲利都是依價格結構提出的條件式規劃，仍需搭配個人持股成本、部位大小與可承受風險。 ");
+  lines.push("");
+  lines.push(`前端報告版本：第3.2版（動態策略報告｜繁中股票名稱強化｜RSI 5T／MA20 保留）`);
+  lines.push(`後端分析版本：${report.version||"-"}`);
+  lines.push(`費波那契N字演算法：轉折點結構第2.4版`);
+
+  return lines.join("\n");
+}
+
+function buildLegacyReportText(report){
   if(!report){
     return "";
   }
@@ -3165,6 +3767,10 @@ function buildReportText(report){
   return localizeBeginnerReportText(lines.join("\n"));
 }
 
+function buildReportText(report){
+  return buildReportTextV32(report);
+}
+
 async function copyReport(){
   const message=document.getElementById("copyMessage");
   const button=document.getElementById("copyReportButton");
@@ -3236,7 +3842,7 @@ async function analyzeStock(){
   try{
     const resolvedInput=await resolveStockInput(rawInput);
     const stock=resolvedInput.code;
-    const directory=resolvedInput.directory;
+    let directory=resolvedInput.directory;
 
     // 查詢成功後統一顯示「繁中名稱｜代號」，方便確認標的。
     input.value=resolvedInput.officialName
@@ -3261,8 +3867,19 @@ async function analyzeStock(){
 
     const apiName=field(data,["name","stockName"]);
     const code=String(field(data,["stock","code"])||stock);
-    const name=resolveTraditionalStockName(code,apiName,directory,resolvedInput.officialName);
     const market=field(data,["market"])||"-";
+
+    // 若後端只回英文、而目前目錄又沒有繁中名稱，分析完成後再強制刷新一次官方目錄。
+    // 這讓「輸入股號」與「輸入中文名稱」都能盡量得到相同的繁中股票簡稱。
+    let name=resolveTraditionalStockName(code,apiName,directory,resolvedInput.officialName);
+    if(!hasRealStockName(name,code)||!hasCjkText(name)){
+      directory=await loadStockDirectory(true);
+      name=resolveTraditionalStockName(code,apiName,directory,resolvedInput.officialName);
+    }
+    if(!hasRealStockName(name,code)||!hasCjkText(name)){
+      const singleOfficialName=await fetchSingleOfficialStockName(code,market);
+      if(singleOfficialName)name=singleOfficialName;
+    }
     const source=field(data,["source"])||"-";
     const version=field(data,["version"])||"-";
     const close=field(data,["close"]);
@@ -3297,7 +3914,7 @@ async function analyzeStock(){
     };
 
     set("stockName",hasRealStockName(name,code)?name:`股票代號 ${code}`);
-    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.1.1`);
+    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.2`);
     set("closeDate",`最新交易日：${datefmt(closeDate)}`);
 
     const status=document.getElementById("status");
