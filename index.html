@@ -5216,7 +5216,7 @@ function buildWeaknessLinesV323(report,s){
     lines.push(`🔴 月線目前未成立；未來需「月K收盤」重新站回『當時的月20MA』才恢復波段資格。${n(report.latestMA)!==null?`現在 ${fmt(report.latestMA)} 元只作當下參考。`:""}`);
   }
   if(s.confirmed&&n(s.fib.B)!==null)lines.push(`⚠️ 完整N字轉弱｜收盤跌回前波高點B ${fmt(s.fib.B)} 元下方，突破品質下降；若再觸發0.764／A失效條件，依Fib生命週期處理。`);
-  else if(s.tacticalActive&&n(s.tacticalEvent.neckline)!==null)lines.push(`⚠️ 戰術N字轉弱｜收盤跌回前三高頸線 ${fmt(s.tacticalEvent.neckline)} 元下方，原戰術突破品質下降。`);
+  else if(s.tacticalActive&&n(s.tacticalEvent.neckline)!==null)lines.push(`⚠️ 戰術突破品質觀察｜若價格跌回 ${fmt(s.tacticalEvent.neckline)} 元突破頸線下方，代表原突破品質轉弱；${n(s.tacticalEvent.defense)!==null?`${fmt(s.tacticalEvent.defense)} 元為突破K短線防守參考。`:`突破K防守價為短線風控參考。`}真正戰術紅翻綠／多方狀態結束，仍以「完成日K收盤跌破當時前三個完整交易日最低價」判定。`);
   return lines;
 }
 
@@ -5256,7 +5256,7 @@ function buildScenarioLinesV323(report,s){
     const neck=n(s.tacticalEvent.neckline),def=n(s.t.tacticalDefense?.level??s.tacticalEvent.defense);
     lines.push(`🟢 劇本一｜戰術續強：價格維持${neck!==null?`頸線 ${fmt(neck)} 元`:"前三高頸線"}上方且量價健康 → 戰術多方延續，仍等完整Fib。`);
     lines.push(`➖ 劇本二｜健康整理：回測${ma!==null?`MA20 ${fmt(ma)} 元／`:""}${neck!==null?`頸線 ${fmt(neck)} 元`:"戰術支撐"}附近量縮守住 → 可能以盤代跌。`);
-    lines.push(`⚠️ 劇本三｜戰術轉弱：收盤跌回${neck!==null?`${fmt(neck)} 元頸線`:"前三高頸線"}下方${def!==null?`，或失守 ${fmt(def)} 元防守`:""} → 原突破品質下降。`);
+    lines.push(`⚠️ 劇本三｜戰術轉弱：若跌回 ${neck!==null?`${fmt(neck)} 元突破頸線`:"前三高突破頸線"}下方${def!==null?`，或跌破 ${fmt(def)} 元突破K防守`:""}，代表原突破品質下降；若完成日K收盤進一步跌破「當時前三個完整交易日最低價」，才正式判定戰術多方狀態結束。`);
   }else if(s.hasAB){
     const A=n(s.fib.A),B=n(s.fib.B);
     lines.push(`🟡 劇本一｜短線修復：${ma!==null?`完整收盤站穩MA20 ${fmt(ma)} 元`:"價格止穩"} → 第一層止弱，但仍不等於C已形成。`);
