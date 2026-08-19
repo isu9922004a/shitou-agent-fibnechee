@@ -474,12 +474,19 @@ function monthlyDataUnavailable(report){
   return report?.officialMonthlyUnavailable===true;
 }
 
+function monthlyPassUnconfirmed(report){
+  return !monthlyDataUnavailable(report)
+    && report?.monthlyPass===true
+    && report?.startMonthConfirmed!==true;
+}
+
 function monthlyUnavailableReason(report){
   return String(report?.officialMonthlyUnavailableReason||"官方月線資料目前暫時無法取得");
 }
 
 function monthlyStatusLine(report){
   if(monthlyDataUnavailable(report))return "🟡 月線官方資料暫不可用｜不判定成立或失效";
+  if(monthlyPassUnconfirmed(report))return "🟡 目前月K最新價暫時站上月20MA｜起始月尚未完成官方確認";
   return report?.entry===true?"🟢 月線條件成立":"🔴 月線條件未成立";
 }
 
@@ -904,7 +911,7 @@ function renderDailyRsi(value){
   }
 }
 
-function renderTargets(entry,base,close,latestClose,latestMA,monthlyUnavailable=false){
+function renderTargets(entry,base,close,latestClose,latestMA,monthlyUnavailable=false,monthlyPending=false){
   const wrap=document.getElementById("targetWrap");
   const no=document.getElementById("noTarget");
   const b=n(base),c=n(close);
@@ -916,6 +923,8 @@ function renderTargets(entry,base,close,latestClose,latestMA,monthlyUnavailable=
 
     if(monthlyUnavailable){
       no.textContent="🟡 官方月線資料目前暫時無法取得，因此 startMonth／月20MA／Base／固定倍數暫停顯示；這不代表月線條件已失效。";
+    }else if(monthlyPending){
+      no.textContent=`🟡 目前月K最新價 ${fmt(lc)} 元暫時站上月20MA ${fmt(ma)} 元，但本月K尚未收完，且起始月尚未完成官方確認，因此 Base／固定倍數先暫停計算；這不代表月線條件失效。`;
     }else if(lc!==null&&ma!==null&&lc<ma){
       no.textContent=`❌ 條件不符合，無法計算固定倍數目標價。現在月K收盤 ${fmt(lc)} < 20MA ${fmt(ma)}。等待月K重新站上20MA後，才建立新的起始月K與目標價。`;
     }else{
@@ -3172,6 +3181,7 @@ function marketNameZh(market){
 function sourceNameZh(source){
   const s=String(source||"");
   if(/TWSE Official/i.test(s))return "臺灣證券交易所";
+  if(/TPEx Official/i.test(s))return "臺灣證券櫃檯買賣中心";
   if(/Yahoo Finance/i.test(s))return "公開市場行情資料";
   return s||"-";
 }
@@ -3875,6 +3885,7 @@ function currentStrategyStateV321(report){
 
   let entryIcon="🟡",entryLabel="等待更完整的價格結構";
   if(monthlyDataUnavailable(report)){entryIcon="🟡";entryLabel="波段新進場暫緩｜官方月線資格未判定";}
+  else if(monthlyPassUnconfirmed(report)){entryIcon="🟡";entryLabel="波段新進場暫緩｜目前月K最新價暫時站上MA20、起始月待確認";}
   else if(report?.entry!==true){entryIcon="🔴";entryLabel="波段新進場鎖定｜月線資格未成立";}
   else if(base.overheated){entryIcon="🔴";entryLabel="不追價｜RSI過熱條件已觸發";}
   else if(base.confirmed&&(base.poorRR||base.nearTarget)){entryIcon="🔴";entryLabel="位置吸引力偏低｜方向與位置分開看";}
@@ -3884,6 +3895,7 @@ function currentStrategyStateV321(report){
   out.entryIcon=entryIcon;out.entryLabel=entryLabel;
 
   if(monthlyDataUnavailable(report)){out.addIcon="🟡";out.addLabel="波段加碼暫緩｜官方月線資格未判定";}
+  else if(monthlyPassUnconfirmed(report)){out.addIcon="🟡";out.addLabel="波段加碼暫緩｜起始月尚未完成官方確認";}
   else if(report?.entry!==true){out.addIcon="🔴";out.addLabel="波段加碼鎖定";}
   else if(addQualityV321){out.addIcon="🟢";out.addLabel="條件較完整，可等回測守穩／再攻評估";}
   else if(base.confirmed){out.addIcon="🟡";out.addLabel="暫不積極加碼，等待條件改善";}
@@ -5004,6 +5016,7 @@ function buildLegacyReportText(report){
 
 function v323MonthlyGateLine(report){
   if(monthlyDataUnavailable(report))return "🟡 波段資格：官方月線資料暫不可用｜本次不判定";
+  if(monthlyPassUnconfirmed(report))return "🟡 波段資格：目前月K最新價暫時站上月20MA｜起始月尚未完成官方確認";
   return report?.entry===true
     ?"🟢 波段資格：月線條件成立"
     :"🔴 波段資格：月線條件未成立";
@@ -5038,6 +5051,7 @@ function v323VolumeLine(s){
 
 function v323FixedTargetLine(report,s){
   if(monthlyDataUnavailable(report))return "📌 下一長期目標：官方月線資料暫不可用，本次固定倍數暫停計算";
+  if(monthlyPassUnconfirmed(report))return "📌 下一長期目標：目前月K最新價暫時站上月20MA，但本月K尚未收完且起始月尚未確認，固定倍數暫停計算";
   if(report?.entry!==true)return "📌 下一長期目標：月線條件未成立，固定倍數暫停計算";
   if(s.fixed?.next){
     const d=signedDistancePct(s.fixed.next.p,report.close);
@@ -5096,6 +5110,8 @@ function buildUnheldLinesV323(report,s){
   const lines=[];
   if(monthlyDataUnavailable(report)){
     lines.push("🟡 官方月線資料目前暫不可用，波段資格本次不判定；未持有者先以短線結構觀察，不因資料缺口硬做波段進場判斷。");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push(`🟡 目前月K最新價 ${fmt(report.latestMonthClose)} 元暫時站上月20MA ${fmt(report.latestMA)} 元，但本月K尚未收完，且起始月尚未完成官方確認；未持有者先觀察，不把「尚未確認」誤當成「月線失效」，也暫不啟用波段建倉。`);
   }else if(report.entry!==true){
     lines.push("🔴 月線條件目前未成立，未持有者以等待為主；短線反彈或戰術突破不直接等於波段布局訊號。");
   }else if(s.confirmed){
@@ -5121,6 +5137,8 @@ function buildHeldLinesV323(report,s){
   const lines=[];
   if(monthlyDataUnavailable(report)){
     lines.push("🟡 官方月線資料目前暫不可用，波段資格本次不判定；已有部位先依短線結構、支撐與風控續抱觀察，暫不因缺資料主動加碼。");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push("🟡 目前月K最新價暫時在月20MA上方，但本月K尚未收完，且這一段真正的起始月尚未完成官方確認；已有部位可依短線結構續抱觀察，波段加碼先暫緩。 ");
   }else if(report.entry!==true){
     lines.push("🔴 月線條件目前未成立；已有部位要提高中長期風控，不再用波段建倉邏輯增加部位。");
   }else if(s.confirmed){
@@ -5141,6 +5159,8 @@ function buildAddLinesV323(report,s){
   const lines=[];
   if(monthlyDataUnavailable(report)){
     lines.push("➖ 官方月線資料暫不可用，本次不列出波段主動加碼訊號。");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push("🟡 目前月K最新價暫時站上月20MA，但本月K尚未收完且起始月尚未完成官方確認；波段主動加碼先暫緩，不判定為月線失效。 ");
   }else if(report.entry!==true){
     lines.push("🔴 月線條件未成立，波段加碼維持鎖定。");
   }else if(s.confirmed&&s.addQualityV321){
@@ -5168,6 +5188,8 @@ function buildProfitLinesV323(report,s){
     lines.push(`📌 固定倍數下一關 ${fmt(s.fixed.next.p)} 元距現價 ${dist===null?"-":fmtSignedPct(dist)}，${far?"目前太遠，只作中長期參考，不當短線停利價。":"可作中長期關卡參考，但仍不單獨當成短線停利價。"}`);
   }else if(monthlyDataUnavailable(report)){
     lines.push("📌 固定倍數因官方月線資料暫不可用而暫停，不另外硬估長期停利價。");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push("📌 目前月K最新價雖暫時站上月20MA，但本月K尚未收完且起始月尚未確認，Base／固定倍數暫停，不另外硬估長期停利價。");
   }
   lines.push("⚠️ 若後續RSI超過80、爆量不漲、長上影或新高失敗，再考慮分批獲利。");
   return lines;
@@ -5186,6 +5208,8 @@ function buildWeaknessLinesV323(report,s){
   }
   if(monthlyDataUnavailable(report)){
     lines.push("🟡 官方月線資料暫不可用，本次不設定月線失效判定線；等官方月線恢復後再判斷波段資格。");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push(`🟡 月線待確認｜目前月K最新價 ${fmt(report.latestMonthClose)} 元 > 月20MA ${fmt(report.latestMA)} 元，代表目前位置暫時站上均線；但本月K尚未收完，且起始月尚未完成官方確認，所以波段資格與固定倍數先不啟用。`);
   }else if(report.entry===true){
     lines.push(`🟢 月線目前成立；未來只有當「月K收盤」跌到『當時的月20MA』下方，月線波段條件才失效。${n(report.latestMA)!==null?`現在 ${fmt(report.latestMA)} 元只作當下參考，不當成固定不變的未來失效線。`:""}`);
   }else{
@@ -5255,6 +5279,10 @@ function buildTechnicalLinesV323(report,s){
   if(monthlyDataUnavailable(report)){
     lines.push("【月線】🟡 官方資料暫不可用｜本次暫不判定");
     lines.push("目前月線：-｜月20MA：-");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push("【月線】🟡 目前月K最新價暫時站上20MA｜起始月尚未完成官方確認");
+    lines.push(`目前月K最新價：${fmt(report.latestMonthClose)} 元｜月20MA：${fmt(report.latestMA)} 元`);
+    lines.push("目前狀態：月線位置暫時符合｜本月K尚未收完｜起始月尚未完成官方確認");
   }else{
     lines.push(`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
     lines.push(`目前月線：${fmt(report.latestMonthClose)} 元｜月20MA：${fmt(report.latestMA)} 元`);
@@ -5287,6 +5315,8 @@ function buildTechnicalLinesV323(report,s){
     lines.push(`【固定倍數】下一關：${s.fixed.next.m}×＝${fmt(s.fixed.next.p)} 元｜距現價 ${d===null?"-":fmtSignedPct(d)}`);
   }else if(monthlyDataUnavailable(report)){
     lines.push("【固定倍數】官方月線資料暫不可用，本次暫停計算");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push("【固定倍數】目前月K最新價暫時站上月20MA，但本月K尚未收完且起始月未確認；Base／固定倍數暫停計算");
   }else{
     lines.push("【固定倍數】月線條件未成立，目前暫停計算");
   }
@@ -5326,6 +5356,7 @@ function buildRememberLinesV323(report,s){
 function buildLazySummaryLinesV323(report,s){
   const lines=[];
   if(monthlyDataUnavailable(report))lines.push("🟡 中長期趨勢：官方月線資料暫不可用，本次不硬判多空。");
+  else if(monthlyPassUnconfirmed(report))lines.push("🟡 中長期趨勢：目前月K最新價暫時站上月20MA，但本月K尚未收完且起始月尚未完成官方確認；目前屬『暫時站上但待確認』，不是月線失效。");
   else if(report.entry===true)lines.push("✅ 中長期趨勢：目前月線條件「成立」，長線方向偏多。");
   else lines.push("🔴 中長期趨勢：目前月線條件「未成立」，波段布局先等待。");
 
@@ -5346,6 +5377,8 @@ function buildFinalReadingLinesV323(report,s){
   const lines=[];
   if(monthlyDataUnavailable(report)){
     lines.push("🟡 官方月線資料暫不可用；本次不把『缺資料』誤判成月線失效，短線Fib／戰術N字仍可分開參考。");
+  }else if(monthlyPassUnconfirmed(report)){
+    lines.push("🟡 目前月K最新價暫時站上月20MA，但本月K尚未收完，且目前這一段的起始月尚未完成官方確認；所以不判成月線失效，也暫不啟用Base／固定倍數與波段新進／加碼資格。");
   }else if(report.entry===true){
     lines.push("🟢 月線波段條件目前成立；接下來仍要把『趨勢方向』與『現在位置是否值得新進／加碼』分開判斷。");
   }else{
@@ -5572,6 +5605,10 @@ async function analyzeStock(){
     const breakMA=field(data,["previousBreakMA20"]);
     const officialMonthlyUnavailable=data?.officialMonthlyUnavailable===true;
     const officialMonthlyUnavailableReason=field(data,["officialMonthlyUnavailableReason"]);
+    const monthlyPass=field(data,["monthlyPass"]);
+    const startMonthConfirmed=field(data,["startMonthConfirmed"]);
+    const monthlyBoundaryAmbiguous=field(data,["monthlyBoundaryAmbiguous"]);
+    const monthlyStartConfirmationSource=field(data,["monthlyStartConfirmationSource"]);
     const fib=data?.fib||null;
     const tacticalN=data?.tacticalN||null;
     const volume=data?.volume||null;
@@ -5582,6 +5619,7 @@ async function analyzeStock(){
       name,code,market,source,version,close,closeDate,entry,stage,startMonth,startClose,startHigh,startLow,
       base,latestMonthClose,latestMA,dailyRsi,breakMonth,breakClose,breakMA,
       officialMonthlyUnavailable,officialMonthlyUnavailableReason,
+      monthlyPass,startMonthConfirmed,monthlyBoundaryAmbiguous,monthlyStartConfirmationSource,
       fib,tacticalN,volume,structure,tactical
     };
 
@@ -5593,6 +5631,9 @@ async function analyzeStock(){
     if(officialMonthlyUnavailable){
       status.className="status warn";
       status.textContent="🟡 官方月線資料暫不可用｜本次不判定月線成立或失效｜Fib／戰術N字仍可正常參考";
+    }else if(monthlyPass===true&&startMonthConfirmed!==true){
+      status.className="status warn";
+      status.textContent=`🟡 目前月K最新價 ${fmt(latestMonthClose)} 暫時站上月20MA ${fmt(latestMA)}｜本月K尚未收完｜起始月尚未完成官方確認｜固定倍數暫停`;
     }else if(entry===true){
       status.className="status ok";
       status.textContent=`✅ 月線符合條件｜${stage||"有效區段"}｜可計算固定倍數目標價`;
@@ -5611,10 +5652,12 @@ async function analyzeStock(){
     set("startLow",fmt(startLow));
     set("baseValue",fmt(base));
 
-    renderTargets(entry,base,close,latestMonthClose,latestMA,officialMonthlyUnavailable);
+    renderTargets(entry,base,close,latestMonthClose,latestMA,officialMonthlyUnavailable,monthlyPass===true&&startMonthConfirmed!==true);
 
     if(officialMonthlyUnavailable){
       set("previousBreak","🟡 官方月線資料暫不可用，本次不判讀月線區段、起始月或跌破月份；這不代表月線條件失效。");
+    }else if(monthlyPass===true&&startMonthConfirmed!==true){
+      set("previousBreak",`🟡 目前月K最新價 ${fmt(latestMonthClose)} 暫時站上月20MA ${fmt(latestMA)}，但本月K尚未收完且起始月尚未完成官方確認；目前不把這個狀態當成月線失效，也暫不建立Base／固定倍數。`);
     }else if(breakMonth){
       set("previousBreak",`上一個跌破月份：${month(breakMonth)}｜收盤 ${fmt(breakClose)} < 20MA ${fmt(breakMA)}`);
     }else{
