@@ -90,6 +90,7 @@ body{
 .status{margin-top:16px;border-radius:14px;padding:16px;font-weight:900;text-align:center;line-height:1.6}
 .status.ok{background:var(--greenbg);color:var(--green);border:1px solid #b7e4c7}
 .status.no{background:var(--redbg);color:var(--red);border:1px solid #f2b8b5}
+.status.warn{background:var(--yellowbg);color:var(--yellow);border:1px solid #f2d675}
 .section-title{font-size:19px;font-weight:900;margin-bottom:14px}
 .section-subtitle{font-size:13px;color:var(--muted);line-height:1.7;margin:-5px 0 14px}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
@@ -202,7 +203,7 @@ body{
   <div class="container">
     <h1>⏳傑克.石頭Agent</h1>
     <p>月線波段條件判斷＋固定倍數目標價＋費波那契 N字分析</p>
-    <span class="version-pill">前端 V3.1.1｜繁中名稱修正版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版｜費波那契核心 第2.4版</span>
+    <span class="version-pill">前端 V3.2.3｜新手小白友善版｜V2.9.5 相容｜費波那契核心 第2.4版</span>
   </div>
 </header>
 
@@ -354,7 +355,7 @@ body{
 
     <section class="panel">
       <div class="section-title">⑥ 一鍵複製分析報告</div>
-      <div class="hint">會整理月線、固定倍數、日 RSI、戰術盤態、🔥戰術 N 字突破、📐費波那契前高確認、量價、三日原則、回測／再攻、費波那契價位與歷史 N 字紀錄。</div>
+      <div class="hint">會依 V3.2.3 新手小白友善框架整理：先看結論、ABC、新進／續抱／加碼／獲利、轉弱條件、價格作戰地圖、下一交易日3種劇本、進階技術資料、歷史N字、小白懶人包與石頭少爺判讀。</div>
       <div class="copy-actions">
         <button id="copyReportButton" class="copy-btn" type="button" onclick="copyReport()">📋 一鍵複製報告</button>
       </div>
@@ -363,11 +364,11 @@ body{
   </section>
 </main>
 
-<footer class="footer">石頭少爺 Agent｜GitHub V3.2.2 ABC 新手白話強化版｜RSI 5T／MA20 保留｜後端分析 第2.8.2版／費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
+<footer class="footer">石頭少爺 Agent｜GitHub V3.2.3 新手小白友善版｜V2.9.5 相容｜費波那契核心 第2.4版<br>技術分析僅供研究與決策參考，不構成投資建議。</footer>
 
 <script>
 const API_BASE_URL="https://shitou-agent-fib-api.d318426.workers.dev";
-const FRONTEND_REPORT_VERSION="2026-08-19-report-v3.2.2-abc-beginner-language";
+const FRONTEND_REPORT_VERSION="2026-08-20-report-v3.2.3-newbie-friendly-framework";
 const TARGET_MULTIPLIERS=[3,3.5,4,4.5,5,5.5,6,6.5,7,7.5,8,8.5,9,9.5,10];
 
 // 股票中文名稱：
@@ -466,6 +467,19 @@ function field(data,names){
     if(data?.[k]!==undefined&&data?.[k]!==null)return data[k];
   }
   return null;
+}
+
+function monthlyDataUnavailable(report){
+  return report?.officialMonthlyUnavailable===true;
+}
+
+function monthlyUnavailableReason(report){
+  return String(report?.officialMonthlyUnavailableReason||"官方月線資料目前暫時無法取得");
+}
+
+function monthlyStatusLine(report){
+  if(monthlyDataUnavailable(report))return "🟡 月線官方資料暫不可用｜不判定成立或失效";
+  return report?.entry===true?"🟢 月線條件成立":"🔴 月線條件未成立";
 }
 
 function set(id,text){
@@ -889,7 +903,7 @@ function renderDailyRsi(value){
   }
 }
 
-function renderTargets(entry,base,close,latestClose,latestMA){
+function renderTargets(entry,base,close,latestClose,latestMA,monthlyUnavailable=false){
   const wrap=document.getElementById("targetWrap");
   const no=document.getElementById("noTarget");
   const b=n(base),c=n(close);
@@ -899,7 +913,9 @@ function renderTargets(entry,base,close,latestClose,latestMA){
     no.style.display="block";
     const lc=n(latestClose),ma=n(latestMA);
 
-    if(lc!==null&&ma!==null&&lc<ma){
+    if(monthlyUnavailable){
+      no.textContent="🟡 官方月線資料目前暫時無法取得，因此 startMonth／月20MA／Base／固定倍數暫停顯示；這不代表月線條件已失效。";
+    }else if(lc!==null&&ma!==null&&lc<ma){
       no.textContent=`❌ 條件不符合，無法計算固定倍數目標價。現在月K收盤 ${fmt(lc)} < 20MA ${fmt(ma)}。等待月K重新站上20MA後，才建立新的起始月K與目標價。`;
     }else{
       no.textContent="❌ 目前沒有有效起始月K，因此無法計算固定倍數目標價。";
@@ -1784,6 +1800,12 @@ function buildOneSentenceSummary(report,fixed,rsiInfo,rrInfo){
   const rsi=n(dailyRsi);
   const bInfo=getBPositionInfo(fib,close);
 
+  if(monthlyDataUnavailable(report)){
+    if(status==="confirmed")return "🟡 TPEx 官方月線資料目前暫時無法取得，因此月線／固定倍數暫停判定；Fib N字仍可依日線資料獨立判讀。";
+    if(status==="forming")return "🟡 TPEx 官方月線資料目前暫時無法取得；月線／固定倍數暫停判定，Fib N字目前仍在形成中。";
+    return "🟡 TPEx 官方月線資料目前暫時無法取得；這不代表月線條件失效，日線 Fib／戰術 N 字仍可繼續獨立參考。";
+  }
+
   if(entry!==true){
     if(status==="confirmed"){
       return "🔴 月線波段條件目前未成立，因此固定倍數目標暫停；雖然 N字曾出現突破確認，但月線與 N字是兩套獨立邏輯，現階段應優先確認支撐與風控是否仍有效。";
@@ -1907,7 +1929,7 @@ function buildCurrentFocusLines(report,fixed,rsiInfo,rrInfo){
   }
 
   lines.push("");
-  lines.push(`${entry===true?"🟢":"🔴"} 月線波段條件：${entry===true?"成立":"未成立"}`);
+  lines.push(monthlyDataUnavailable(report)?"🟡 月線波段條件：官方資料暫不可用｜暫不判定":`${entry===true?"🟢":"🔴"} 月線波段條件：${entry===true?"成立":"未成立"}`);
 
   if(stage){
     lines.push(`📌 系統階段：${stage}`);
@@ -2011,7 +2033,7 @@ function buildCurrentFocusLines(report,fixed,rsiInfo,rrInfo){
       lines.push("🏆 固定倍數：目前已達或高於 10×");
     }
   }else{
-    lines.push("⚪ 固定倍數：月線條件未成立，目前不計算");
+    lines.push(monthlyDataUnavailable(report)?"🟡 固定倍數：官方月線資料暫不可用，目前暫停計算":"⚪ 固定倍數：月線條件未成立，目前不計算");
   }
 
   lines.push(`${rsiInfo.icon} 日 RSI 5T：${n(dailyRsi)===null?"-":fmt(dailyRsi,2)}｜${rsiInfo.label}`);
@@ -2044,7 +2066,9 @@ function buildMonthlySectionLines(report){
     latestMA,
     breakMonth,
     breakClose,
-    breakMA
+    breakMA,
+    officialMonthlyUnavailable,
+    officialMonthlyUnavailableReason
   }=report;
 
   const lines=[];
@@ -2053,7 +2077,7 @@ function buildMonthlySectionLines(report){
   lines.push("【① 月線波段｜中長期方向】");
   lines.push("━━━━━━━━━━━━━━━━━━");
   lines.push("");
-  lines.push(`${entry===true?"🟢":"🔴"} 月線波段條件：${entry===true?"成立":"未成立"}`);
+  lines.push(officialMonthlyUnavailable===true?"🟡 月線波段條件：官方資料暫不可用｜暫不判定":`${entry===true?"🟢":"🔴"} 月線波段條件：${entry===true?"成立":"未成立"}`);
 
   if(stage){
     lines.push(`📌 系統階段：${stage}`);
@@ -2064,7 +2088,10 @@ function buildMonthlySectionLines(report){
   lines.push(`目前月20MA（20個月均線）：${fmt(latestMA)} 元`);
   lines.push("");
 
-  if(entry===true){
+  if(officialMonthlyUnavailable===true){
+    lines.push("➡️ 官方月線資料目前無法完整取得，所以這次不判定月線成立或失效；欄位顯示「-」是資料不可用，不是技術面轉空。");
+    if(officialMonthlyUnavailableReason)lines.push(`📌 原因：${officialMonthlyUnavailableReason}`);
+  }else if(entry===true){
     lines.push(`➡️ ${getMonthlyPositionText(latestMonthClose,latestMA)}，所以月線波段條件目前維持成立。`);
   }else{
     lines.push(`➡️ ${getMonthlyPositionText(latestMonthClose,latestMA)}，所以目前月線波段條件未成立。`);
@@ -2082,7 +2109,9 @@ function buildMonthlySectionLines(report){
     lines.push(`（${fmt(startHigh)} + ${fmt(startLow)}）÷ 2`);
     lines.push(`＝${fmt(base)} 元`);
   }else{
-    lines.push("目前沒有有效的起始月份，因此固定倍數基準暫停使用。");
+    lines.push(officialMonthlyUnavailable===true
+      ?"官方月線資料暫不可用，因此起始月份／基準價暫停顯示；不視為有效區段失效。"
+      :"目前沒有有效的起始月份，因此固定倍數基準暫停使用。");
   }
 
   lines.push("");
@@ -2091,10 +2120,12 @@ function buildMonthlySectionLines(report){
     lines.push("🔴 上一次月線跌破：");
     lines.push(`${month(breakMonth)}｜收盤 ${fmt(breakClose)} 元 < 月20MA ${fmt(breakMA)} 元`);
   }else{
-    lines.push("目前判斷區間內沒有可顯示的上一個跌破月份。");
+    lines.push(officialMonthlyUnavailable===true
+      ?"官方月線資料暫不可用，本次不判讀上一個月線跌破月份。"
+      :"目前判斷區間內沒有可顯示的上一個跌破月份。");
   }
 
-  if(entry!==true){
+  if(entry!==true&&officialMonthlyUnavailable!==true){
     lines.push("");
     lines.push("📌 依系統規則，要等未來月K重新站上月20MA，才會建立新的起始月K。");
   }
@@ -2111,7 +2142,9 @@ function buildFixedTargetSectionLines(report,fixed){
   lines.push("");
 
   if(!fixed.enabled){
-    lines.push("⚪ 月線條件未成立，目前不計算 3×～10× 固定倍數目標。");
+    lines.push(monthlyDataUnavailable(report)
+      ?"🟡 官方月線資料暫不可用，因此 startMonth／Base／3×～10× 固定倍數暫停計算；這不代表月線條件失效。"
+      :"⚪ 月線條件未成立，目前不計算 3×～10× 固定倍數目標。");
     return lines;
   }
 
@@ -2847,7 +2880,7 @@ function buildFinalReadingLines(report,fixed,rsiInfo,rrInfo){
   lines.push("━━━━━━━━━━━━━━━━━━");
   lines.push("");
 
-  lines.push(`${report.entry===true?"🟢":"🔴"} 中長期月線：${report.entry===true?"條件目前成立。":"條件目前未成立。"}`);
+  lines.push(monthlyDataUnavailable(report)?"🟡 中長期月線：官方資料暫不可用，本次不判定成立或失效。":`${report.entry===true?"🟢":"🔴"} 中長期月線：${report.entry===true?"條件目前成立。":"條件目前未成立。"}`);
 
   if(fib.status==="confirmed"){
     lines.push("📐 短線 Fib N字：B確認完成，已有正式的支撐、風控與 1.618 主目標。");
@@ -2866,7 +2899,7 @@ function buildFinalReadingLines(report,fixed,rsiInfo,rrInfo){
   }else if(fixed?.enabled&&!fixed?.next){
     lines.push("🏆 固定倍數：目前已達或高於 10×。");
   }else{
-    lines.push("⚪ 固定倍數：目前月線條件未成立，所以暫停計算。");
+    lines.push(monthlyDataUnavailable(report)?"🟡 固定倍數：因官方月線資料暫不可用而暫停計算。":"⚪ 固定倍數：目前月線條件未成立，所以暫停計算。");
   }
 
   if(rrInfo&&fib?.status==="confirmed"){
@@ -2894,7 +2927,9 @@ function buildBeginnerThreeSentenceLines(report,fixed,rsiInfo,rrInfo){
   lines.push("❗ 新手先看這三句");
   lines.push("");
 
-  if(report?.entry===true){
+  if(monthlyDataUnavailable(report)){
+    lines.push("1. 🟡 中長期月線官方資料暫不可用：本次無法安全判定月線成立或失效，也不計算固定倍數；這不代表月線已轉空。");
+  }else if(report?.entry===true){
     lines.push(`1. 🟢 中長期月線條件仍成立：目前月K ${fmt(latestMonthClose)} 元高於月20MA（20個月均線）${fmt(latestMA)} 元，長波段條件維持成立。`);
   }else{
     lines.push(`1. 🔴 中長期月線條件目前未成立：目前月K ${fmt(latestMonthClose)} 元與月20MA（20個月均線）${fmt(latestMA)} 元的關係未符合系統條件。`);
@@ -3203,7 +3238,7 @@ function buildStrategyQuickLines(report,s){
   lines.push(`${s.stateIcon} 目前盤態：${s.stateLabel}`);
   if(s.t?.marketPhase?.label)lines.push(`📈 市場結構：${s.t.marketPhase.label}`);
   lines.push("");
-  lines.push(`${report.entry===true?"🟢":"🔴"} 中長期月線條件：${report.entry===true?"成立":"未成立"}`);
+  lines.push(monthlyDataUnavailable(report)?"🟡 中長期月線條件：官方資料暫不可用｜暫不判定":`${report.entry===true?"🟢":"🔴"} 中長期月線條件：${report.entry===true?"成立":"未成立"}`);
 
   if(s.confirmed){
     lines.push(`📐 費波那契N字：已確認｜前波高點 ${fmt(s.fib.B)} 元`);
@@ -3503,7 +3538,7 @@ function buildScenarioV32Lines(report,s){
 
 function buildTechnicalV32Lines(report,s){
   const lines=[];
-  lines.push(`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
+  lines.push(monthlyDataUnavailable(report)?"【月線】🟡 官方資料暫不可用｜暫不判定":`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
   lines.push(`目前月線：${fmt(report.latestMonthClose)} 元｜月20MA：${fmt(report.latestMA)} 元`);
   lines.push("");
   lines.push(`【日 RSI 5T】${fmt(report.dailyRsi)}｜${getRsiReportInfo(report.dailyRsi).label}`);
@@ -3878,7 +3913,7 @@ function buildStrategyQuickLinesV321(report,s){
   lines.push(`${stateIcon} 目前盤態：${stateLabel}`);
   lines.push(`📈 市場結構：${s.structure.label}`);
   lines.push("");
-  lines.push(`${report.entry===true?"🟢":"🔴"} 波段資格：${report.entry===true?"月線條件成立":"月線條件目前未成立｜波段建倉／加碼鎖定"}`);
+  lines.push(monthlyDataUnavailable(report)?"🟡 波段資格：官方月線資料暫不可用｜本次不判定":`${report.entry===true?"🟢":"🔴"} 波段資格：${report.entry===true?"月線條件成立":"月線條件目前未成立｜波段建倉／加碼鎖定"}`);
 
   if(s.confirmed){
     lines.push(`🟢 核心N字：已確認｜前波高點B ${fmt(s.fib.B)} 元`);
@@ -4254,7 +4289,9 @@ function buildWeaknessPlanLinesV321(report,s){
     else if(def!==null)lines.push(`🚨 戰術防守：${fmt(def)} 元。`);
   }
 
-  if(report.entry===true){
+  if(monthlyDataUnavailable(report)){
+    lines.push("🟡 官方月線資料暫不可用，本次不建立月線失效線或恢復線；避免把資料缺漏誤判成技術面轉弱。");
+  }else if(report.entry===true){
     if(n(report.latestMA)!==null)lines.push(`🟢 月線目前成立；未來只有當月K收盤跌到『當時的月20MA』下方，月線波段條件才失效。現在 ${fmt(report.latestMA)} 元只作當下參考，不當成固定不變的未來失效線。`);
   }else{
     if(n(report.latestMA)!==null)lines.push(`🔴 月線目前未成立；${fmt(report.latestMA)} 元目前角色是『月線恢復觀察』，不是未來失效線。需月K收盤重新站回當時月20MA才恢復波段資格。`);
@@ -4443,9 +4480,9 @@ function buildScenarioV321Lines(report,s){
 
 function buildTechnicalV321Lines(report,s){
   const lines=[];
-  lines.push(`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
+  lines.push(monthlyDataUnavailable(report)?"【月線】🟡 官方資料暫不可用｜暫不判定":`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
   lines.push(`目前月線：${fmt(report.latestMonthClose)} 元｜月20MA：${fmt(report.latestMA)} 元`);
-  if(report.entry!==true&&s.monthlyRecoveryDist!==null)lines.push(`月線恢復距離：目前約 ${fmtSignedPct(s.monthlyRecoveryDist)}｜需月K收盤站回當時月20MA`);
+  if(!monthlyDataUnavailable(report)&&report.entry!==true&&s.monthlyRecoveryDist!==null)lines.push(`月線恢復距離：目前約 ${fmtSignedPct(s.monthlyRecoveryDist)}｜需月K收盤站回當時月20MA`);
   lines.push("");
   lines.push(`【日 RSI 5T】${fmt(report.dailyRsi)}｜${getRsiReportInfo(report.dailyRsi).label}`);
   if(s.maCtx.value!==null)lines.push(`【日20MA】${fmt(s.maCtx.value)} 元｜近5日斜率 ${s.maCtx.slope!==null?fmtSignedPct(s.maCtx.slope):"-"}｜${s.maCtx.slopeClass.label}｜現價乖離 ${s.maCtx.gapPct!==null?fmtSignedPct(s.maCtx.gapPct):"-"}`);
@@ -4954,9 +4991,450 @@ function buildLegacyReportText(report){
   return localizeBeginnerReportText(lines.join("\n"));
 }
 
-function buildReportText(report){
-  return buildReportTextV322(report);
+
+/* ========================================================================
+   V3.2.3 一鍵複製報告層｜新手小白友善版
+   ------------------------------------------------------------------------
+   只更換複製報告的格式、用語與框架；不修改 Worker V2.9.5、
+   Fibonacci V2.4、戰術 N 字或畫面上既有分析邏輯。
+   ======================================================================== */
+
+function v323MonthlyGateLine(report){
+  if(monthlyDataUnavailable(report))return "🟡 波段資格：官方月線資料暫不可用｜本次不判定";
+  return report?.entry===true
+    ?"🟢 波段資格：月線條件成立"
+    :"🔴 波段資格：月線條件未成立";
 }
+
+function v323FibSummaryLine(report,s){
+  if(s.confirmed)return `🟢 完整N字：已確認｜前波高點B ${fmt(s.fib.B)} 元`;
+  if(s.forming)return `🟡 完整N字：A、B、C已形成｜等待完整日線收盤突破B ${fmt(s.fib.B)} 元`;
+  if(s.hasAB)return `🟡 完整N字：A、B已出現，C尚未形成｜等待有效回檔低點`;
+  return "⚪ 完整N字：目前沒有新的完整結構";
+}
+
+function v323TacticalSummaryLine(s){
+  if(!s.tacticalActive)return "⚪ 戰術N字：目前沒有有效的新突破事件";
+  return `🔥 戰術N字：${datefmt(s.tacticalEvent.breakoutDate)} 完整日線收盤 ${fmt(s.tacticalEvent.breakoutClose)} > 前三高 ${fmt(s.tacticalEvent.neckline)}｜目前仍有效`;
+}
+
+function v323MaLine(s){
+  if(s.maCtx.value===null)return "⚪ 日20MA（短線均線）：目前資料不足";
+  return `${s.maCtx.icon} 日20MA（短線均線）：${fmt(s.maCtx.value)} 元｜近5日斜率 ${s.maCtx.slope!==null?fmtSignedPct(s.maCtx.slope):"-"}｜${s.maCtx.slopeClass.label}｜現價乖離 ${s.maCtx.gapPct!==null?fmtSignedPct(s.maCtx.gapPct):"-"}`;
+}
+
+function v323RsiLine(report){
+  const info=getRsiReportInfo(report?.dailyRsi);
+  return `${info.icon} 日 RSI（短線動能）：${n(report?.dailyRsi)===null?"-":fmt(report.dailyRsi,2)}｜${info.label}`;
+}
+
+function v323VolumeLine(s){
+  if(s.volume.latestRatio===null)return "⚪ 最新成交量：目前相對量資料不足";
+  return `${s.latestVolume.icon} 最新成交量：${fmt(s.volume.latestRatio,2)} 倍｜${s.latestVolume.label}`;
+}
+
+function v323FixedTargetLine(report,s){
+  if(monthlyDataUnavailable(report))return "📌 下一長期目標：官方月線資料暫不可用，本次固定倍數暫停計算";
+  if(report?.entry!==true)return "📌 下一長期目標：月線條件未成立，固定倍數暫停計算";
+  if(s.fixed?.next){
+    const d=signedDistancePct(s.fixed.next.p,report.close);
+    return `📌 下一長期目標：${s.fixed.next.m}×＝${fmt(s.fixed.next.p)} 元｜距現價 ${d===null?"-":fmtSignedPct(d)}（中長期參考）`;
+  }
+  if(s.fixed?.enabled)return "🏆 下一長期目標：目前已達或高於10×固定倍數";
+  return "📌 下一長期目標：目前沒有可計算的固定倍數目標";
+}
+
+function buildStrategyQuickLinesV323(report,s){
+  const lines=[];
+  lines.push(`${s.structure.icon} 目前盤態：${s.structure.label}`);
+  lines.push(`📈 市場結構：${s.structure.label}`);
+  lines.push("");
+  lines.push(v323MonthlyGateLine(report));
+  lines.push(v323FibSummaryLine(report,s));
+  lines.push(v323TacticalSummaryLine(s));
+  lines.push("");
+  lines.push(`📍 現價：${fmt(report.close)} 元`);
+  lines.push(v323MaLine(s));
+  lines.push(v323RsiLine(report));
+  lines.push(v323VolumeLine(s));
+  lines.push(v323FixedTargetLine(report,s));
+  lines.push("");
+  lines.push(`${s.entryIcon} 新進場：${s.entryLabel}`);
+  lines.push(`${s.addIcon} 加碼：${s.addLabel}`);
+  return lines;
+}
+
+function buildABCNewbieLinesV323(report,s){
+  const lines=[];
+  lines.push("📖 ABC 是這套分析的核心：把股價的轉折分成三個角色，就像爬山一樣：");
+  lines.push("• A（起漲點）＝山腳下的起跑線，是這一波上漲的起點。");
+  lines.push("• B（前波高點）＝爬到的第一個山頂，是後續要突破的關卡。");
+  lines.push("• C（回檔低點）＝從山頂下來後再次踩穩的地方，是確認轉折的關鍵。");
+  lines.push("");
+  lines.push(`A｜起漲點：${n(s.fib.A)===null?"尚未形成":`${fmt(s.fib.A)} 元${s.fib.ADate?`｜${datefmt(s.fib.ADate)}`:""}`}`);
+  lines.push(`B｜前波高點：${n(s.fib.B)===null?"尚未形成":`${fmt(s.fib.B)} 元${s.fib.BDate?`｜${datefmt(s.fib.BDate)}`:""}`}`);
+  lines.push(`C｜回檔低點：${n(s.fib.C)===null?"尚未形成":`${fmt(s.fib.C)} 元${s.fib.CDate?`｜${datefmt(s.fib.CDate)}`:""}`}`);
+  lines.push("");
+  if(s.confirmed){
+    lines.push(`✅ 目前進度：A、B、C都已形成，而且已由C回升後以完整日線收盤突破B ${fmt(s.fib.B)} 元，完整N字正式確認。`);
+  }else if(s.forming){
+    lines.push(`⏳ 目前進度：A、B、C都已形成，最後只差由C回升後，以完整日線收盤突破B ${fmt(s.fib.B)} 元。`);
+  }else if(s.hasAB){
+    lines.push("⏳ 目前進度：A與B已出現，正在等待有效C形成；回檔尚未踩穩以前，不用急著把某個低點猜成C。");
+  }else{
+    lines.push("⏳ 目前進度：新的A、B、C都還沒出現，市場正在醞釀新的轉折點，不用急著猜。");
+  }
+  lines.push("");
+  lines.push("📌 記住口訣：A起漲 → B前高 → C回檔 → 再突破B ＝ 完整N字確認。");
+  return lines;
+}
+
+function buildUnheldLinesV323(report,s){
+  const lines=[];
+  if(monthlyDataUnavailable(report)){
+    lines.push("🟡 官方月線資料目前暫不可用，波段資格本次不判定；未持有者先以短線結構觀察，不因資料缺口硬做波段進場判斷。");
+  }else if(report.entry!==true){
+    lines.push("🔴 月線條件目前未成立，未持有者以等待為主；短線反彈或戰術突破不直接等於波段布局訊號。");
+  }else if(s.confirmed){
+    if(s.overheated||s.poorRR||s.nearTarget||s.nearFixed){
+      lines.push("🔴 完整N字雖已確認，但目前位置吸引力偏低，先不要因趨勢強就追價。");
+    }else{
+      lines.push(`🟡 完整N字已確認；未持有者優先等前波高點B（${fmt(s.fib.B)} 元）附近健康回測、量縮守住後再評估分批布局。`);
+    }
+  }else if(s.tacticalActive){
+    lines.push("🟡 戰術面已轉強，但完整Fib尚未確認；未持有者以回測／整理後再攻為優先，不因單日突破直接追價。");
+  }else{
+    if(s.maCtx.value!==null){
+      lines.push(`🟡 目前先等短線止弱；日20MA（${fmt(s.maCtx.value)} 元）是第一修復觀察，但站回MA20仍不等於完整N字。`);
+      lines.push("📌 等價格重新站上日20MA且成交量穩定，再觀察是否形成新的A/B/C結構。");
+    }else{
+      lines.push("🟡 目前先等待更完整的價格結構；沒有日20MA與ABC確認以前，不急著猜低點。");
+    }
+  }
+  return lines;
+}
+
+function buildHeldLinesV323(report,s){
+  const lines=[];
+  if(monthlyDataUnavailable(report)){
+    lines.push("🟡 官方月線資料目前暫不可用，波段資格本次不判定；已有部位先依短線結構、支撐與風控續抱觀察，暫不因缺資料主動加碼。");
+  }else if(report.entry!==true){
+    lines.push("🔴 月線條件目前未成立；已有部位要提高中長期風控，不再用波段建倉邏輯增加部位。");
+  }else if(s.confirmed){
+    lines.push("🟢 月線條件仍成立，且完整N字已確認；原有部位可續抱觀察，加碼仍要等回測守住／再攻與量價條件。");
+  }else if(s.tacticalActive){
+    lines.push("🟢 月線條件仍成立，戰術多方狀態可續抱觀察；完整N字尚未確認前，暫不積極追價加碼。");
+  }else{
+    lines.push("🟡 月線條件仍成立，長線方向沒問題，但短線沒有有效戰術突破或完整N字，原有部位可續抱觀察，暫不加碼。");
+  }
+  if(s.maCtx.value!==null){
+    if(s.maCtx.above===false)lines.push(`⚠️ 現價仍在日20MA（${fmt(s.maCtx.value)} 元）下方；先看能否重新站回，若站不回則保持觀望。`);
+    else lines.push(`🟡 現價目前在日20MA（${fmt(s.maCtx.value)} 元）上方；仍要觀察均線斜率、量能與新結構是否同步改善。`);
+  }
+  return lines;
+}
+
+function buildAddLinesV323(report,s){
+  const lines=[];
+  if(monthlyDataUnavailable(report)){
+    lines.push("➖ 官方月線資料暫不可用，本次不列出波段主動加碼訊號。");
+  }else if(report.entry!==true){
+    lines.push("🔴 月線條件未成立，波段加碼維持鎖定。");
+  }else if(s.confirmed&&s.addQualityV321){
+    lines.push("🟢 完整N字已確認，且量價／位置條件較完整；可等待回測核心支撐守穩或整理後再攻時評估加碼。");
+  }else if(s.confirmed){
+    lines.push("🟡 完整Fib已確認，但目前仍需等待更好的回測、量能、RSI或風險報酬條件，不主動追價加碼。");
+  }else{
+    lines.push("➖ 目前沒有完整短線多方確認，不列出主動加碼訊號。");
+  }
+  lines.push("📌 加碼時機：等出現新的戰術突破（完整日線收盤突破前三高）或完整N字確認（收盤突破B），且RSI未過熱、成交量正常。");
+  return lines;
+}
+
+function buildProfitLinesV323(report,s){
+  const lines=[];
+  if(s.confirmed&&n(s.fib.target1618)!==null){
+    const dist=signedDistancePct(s.fib.target1618,report.close);
+    lines.push(`🎯 正式Fib 1.618目標：${fmt(s.fib.target1618)} 元${dist!==null?`｜距現價 ${fmtSignedPct(dist)}`:""}。`);
+  }else{
+    lines.push("➖ 目前沒有新的正式Fib目標（1.618目標價尚未產生）。");
+  }
+  if(!monthlyDataUnavailable(report)&&report.entry===true&&s.fixed?.next){
+    const dist=signedDistancePct(s.fixed.next.p,report.close);
+    const far=dist!==null&&dist>20;
+    lines.push(`📌 固定倍數下一關 ${fmt(s.fixed.next.p)} 元距現價 ${dist===null?"-":fmtSignedPct(dist)}，${far?"目前太遠，只作中長期參考，不當短線停利價。":"可作中長期關卡參考，但仍不單獨當成短線停利價。"}`);
+  }else if(monthlyDataUnavailable(report)){
+    lines.push("📌 固定倍數因官方月線資料暫不可用而暫停，不另外硬估長期停利價。");
+  }
+  lines.push("⚠️ 若後續RSI超過80、爆量不漲、長上影或新高失敗，再考慮分批獲利。");
+  return lines;
+}
+
+function buildWeaknessLinesV323(report,s){
+  const lines=[];
+  lines.push("➖ 盤整不等於看空；以下是不同狀況的轉弱條件：");
+  lines.push("");
+  if(s.maCtx.value!==null){
+    if(s.maCtx.above===false){
+      lines.push(`${s.maCtx.icon} MA20修復｜現價仍在 ${fmt(s.maCtx.value)} 元下方，且均線${s.maCtx.slopeClass.label}；先等站回與斜率改善。`);
+    }else{
+      lines.push(`${s.maCtx.icon} MA20觀察｜現價在 ${fmt(s.maCtx.value)} 元上方，均線${s.maCtx.slopeClass.label}；若跌回MA20下方且斜率轉弱，短線品質下降。`);
+    }
+  }
+  if(monthlyDataUnavailable(report)){
+    lines.push("🟡 官方月線資料暫不可用，本次不設定月線失效判定線；等官方月線恢復後再判斷波段資格。");
+  }else if(report.entry===true){
+    lines.push(`🟢 月線目前成立；未來只有當「月K收盤」跌到『當時的月20MA』下方，月線波段條件才失效。${n(report.latestMA)!==null?`現在 ${fmt(report.latestMA)} 元只作當下參考，不當成固定不變的未來失效線。`:""}`);
+  }else{
+    lines.push(`🔴 月線目前未成立；未來需「月K收盤」重新站回『當時的月20MA』才恢復波段資格。${n(report.latestMA)!==null?`現在 ${fmt(report.latestMA)} 元只作當下參考。`:""}`);
+  }
+  if(s.confirmed&&n(s.fib.B)!==null)lines.push(`⚠️ 完整N字轉弱｜收盤跌回前波高點B ${fmt(s.fib.B)} 元下方，突破品質下降；若再觸發0.764／A失效條件，依Fib生命週期處理。`);
+  else if(s.tacticalActive&&n(s.tacticalEvent.neckline)!==null)lines.push(`⚠️ 戰術N字轉弱｜收盤跌回前三高頸線 ${fmt(s.tacticalEvent.neckline)} 元下方，原戰術突破品質下降。`);
+  return lines;
+}
+
+function buildPriceMapLinesV323(report,s){
+  const lines=[];
+  if(s.maCtx.value!==null)lines.push(`${s.maCtx.icon} ${fmt(s.maCtx.value)} 元｜日20MA／第一修復觀察`);
+  lines.push(`📍 ${fmt(report.close)} 元｜目前收盤價`);
+  if(!monthlyDataUnavailable(report)&&n(report.latestMA)!==null){
+    lines.push(`${report.entry===true?"🔴":"🟡"} ${fmt(report.latestMA)} 元｜目前月20MA／月線條件參考（需月K收盤判定）`);
+  }
+  if(s.tacticalActive&&n(s.tacticalEvent.neckline)!==null)lines.push(`🔥 ${fmt(s.tacticalEvent.neckline)} 元｜戰術N字前三高頸線`);
+  if(s.confirmed){
+    if(n(s.fib.B)!==null)lines.push(`🛡️ ${fmt(s.fib.B)} 元｜前波高點B／完整N字核心`);
+    if(n(s.fib.retracement?.["0.618"])!==null)lines.push(`🛡️ ${fmt(s.fib.retracement["0.618"])} 元｜0.618主要支撐`);
+    if(n(s.fib.retracement?.["0.764"])!==null)lines.push(`🚨 ${fmt(s.fib.retracement["0.764"])} 元｜0.764深度風控`);
+    if(n(s.fib.target1618)!==null)lines.push(`🎯 ${fmt(s.fib.target1618)} 元｜1.618正式目標`);
+  }else if(s.forming&&n(s.fib.B)!==null){
+    lines.push(`🎯 ${fmt(s.fib.B)} 元｜前波高點B／完整N字確認門檻`);
+  }
+  return lines;
+}
+
+function buildScenarioLinesV323(report,s){
+  const lines=[];
+  const ma=s.maCtx.value;
+  if(s.confirmed){
+    const B=n(s.fib.B),def=n(s.t.fibDefense?.level),target=n(s.fib.target1618);
+    lines.push(`🟢 劇本一｜續強：價格維持${B!==null?`B ${fmt(B)} 元`:`核心前高`}上方、量能正常，${target!==null?`往1.618 ${fmt(target)} 元推進`:`持續創高`} → 已持有續抱；未持有不因單日創高直接追。`);
+    lines.push(`🟡 劇本二｜健康回測：${B!==null?`回到B ${fmt(B)} 元附近`:(ma!==null?`回到MA20 ${fmt(ma)} 元附近`:"回到核心支撐附近")}量縮守住後再攻 → 可重新評估布局／加碼條件。`);
+    lines.push(`⚠️ 劇本三｜轉弱：${B!==null?`收盤跌回B ${fmt(B)} 元下方`:"核心突破失守"}${def!==null?`，或失守短線防守 ${fmt(def)} 元`:""} → 停止加碼並提高風控。`);
+  }else if(s.forming){
+    const A=n(s.fib.A),B=n(s.fib.B),C=n(s.fib.C);
+    lines.push(`🟢 劇本一｜C後回升：價格由C ${C!==null?fmt(C):"-"} 元持續回升，最後完整收盤突破B ${B!==null?fmt(B):"-"} 元 → 完整N字正式確認。`);
+    lines.push(`➖ 劇本二｜C附近止穩：價格不再快速破低、量能逐步正常化 → 可能進入修復，仍等突破B。`);
+    lines.push(`⚠️ 劇本三｜候選失效：${A!==null?`最低價跌破A ${fmt(A)} 元`:"候選結構跌破起漲點"} → 等待新的A/B/C。`);
+  }else if(s.tacticalActive){
+    const neck=n(s.tacticalEvent.neckline),def=n(s.t.tacticalDefense?.level??s.tacticalEvent.defense);
+    lines.push(`🟢 劇本一｜戰術續強：價格維持${neck!==null?`頸線 ${fmt(neck)} 元`:"前三高頸線"}上方且量價健康 → 戰術多方延續，仍等完整Fib。`);
+    lines.push(`➖ 劇本二｜健康整理：回測${ma!==null?`MA20 ${fmt(ma)} 元／`:""}${neck!==null?`頸線 ${fmt(neck)} 元`:"戰術支撐"}附近量縮守住 → 可能以盤代跌。`);
+    lines.push(`⚠️ 劇本三｜戰術轉弱：收盤跌回${neck!==null?`${fmt(neck)} 元頸線`:"前三高頸線"}下方${def!==null?`，或失守 ${fmt(def)} 元防守`:""} → 原突破品質下降。`);
+  }else if(s.hasAB){
+    const A=n(s.fib.A),B=n(s.fib.B);
+    lines.push(`🟡 劇本一｜短線修復：${ma!==null?`完整收盤站穩MA20 ${fmt(ma)} 元`:"價格止穩"} → 第一層止弱，但仍不等於C已形成。`);
+    lines.push(`➖ 劇本二｜形成C：B之後回檔不再快速破低、量能正常化 → 等待有效C，之後才看能否再突破B ${B!==null?fmt(B):"-"} 元。`);
+    lines.push(`⚠️ 劇本三｜候選結構失效：${A!==null?`最低價跌破A ${fmt(A)} 元`:"跌破候選起漲點"} → 等待新的A/B結構。`);
+  }else if(s.maCtx.above===false&&ma!==null){
+    lines.push(`🟡 劇本一｜重新收回MA20：完整收盤站回 ${fmt(ma)} 元 → 短線第一層止弱；低RSI本身仍不是買點。`);
+    lines.push("➖ 劇本二｜MA20下方止穩：價格不再快速破低、量能逐步正常化 → 可能進入修復，仍等新結構。");
+    lines.push("⚠️ 劇本三｜弱勢延續：持續站不回MA20且再破低 → 短線修復失敗，未持有繼續等待。");
+  }else{
+    lines.push(`🟢 劇本一｜維持MA20上方：${ma!==null?`價格守住 ${fmt(ma)} 元`:"價格維持短線支撐"}且量能正常 → 短線趨勢可延續，但仍等新ABC。`);
+    lines.push("➖ 劇本二｜高檔整理：價格橫盤、RSI降溫、量能正常化 → 可能以盤代跌，等待新的戰術突破／完整N字。");
+    lines.push(`⚠️ 劇本三｜短線轉弱：${ma!==null?`收盤跌回MA20 ${fmt(ma)} 元下方且斜率轉弱`:"跌破短線支撐"} → 先等重新止穩。`);
+  }
+  return lines.slice(0,3);
+}
+
+function buildTechnicalLinesV323(report,s){
+  const lines=[];
+  if(monthlyDataUnavailable(report)){
+    lines.push("【月線】🟡 官方資料暫不可用｜本次暫不判定");
+    lines.push("目前月線：-｜月20MA：-");
+  }else{
+    lines.push(`【月線】${report.entry===true?"🟢 條件成立":"🔴 條件未成立"}`);
+    lines.push(`目前月線：${fmt(report.latestMonthClose)} 元｜月20MA：${fmt(report.latestMA)} 元`);
+  }
+  lines.push("");
+  const rsi=getRsiReportInfo(report.dailyRsi);
+  lines.push(`【日 RSI 5T】${n(report.dailyRsi)===null?"-":fmt(report.dailyRsi,2)}｜${rsi.label}`);
+  if(s.maCtx.value!==null)lines.push(`【日20MA】${fmt(s.maCtx.value)} 元｜近5日斜率 ${s.maCtx.slope!==null?fmtSignedPct(s.maCtx.slope):"-"}｜${s.maCtx.slopeClass.label}｜現價乖離 ${s.maCtx.gapPct!==null?fmtSignedPct(s.maCtx.gapPct):"-"}`);
+  if(s.volume.latestRatio!==null)lines.push(`【最新相對量】${fmt(s.volume.latestRatio,2)} 倍｜${s.latestVolume.label}`);
+  lines.push("");
+  lines.push("【費波那契N字】");
+  lines.push("ABC白話：A＝起漲點｜B＝前波高點｜C＝回檔低點");
+  lines.push("完整確認：C形成後，再由C回升並以完整日線收盤突破B。");
+  lines.push(`狀態：${s.confirmed?"🟢 已確認":s.forming?"🟡 形成中":"⚪ 尚未形成"}`);
+  if(n(s.fib.A)!==null)lines.push(`A起漲點：${fmt(s.fib.A)} 元${s.fib.ADate?`｜${datefmt(s.fib.ADate)}`:""}`);
+  if(n(s.fib.B)!==null)lines.push(`B前波高點：${fmt(s.fib.B)} 元${s.fib.BDate?`｜${datefmt(s.fib.BDate)}`:""}`);
+  if(n(s.fib.C)!==null)lines.push(`C回檔低點：${fmt(s.fib.C)} 元${s.fib.CDate?`｜${datefmt(s.fib.CDate)}`:""}`);
+  if(s.confirmed){
+    lines.push(`0.618主要支撐：${fmt(s.fib.retracement?.["0.618"])} 元`);
+    lines.push(`0.764深度風控：${fmt(s.fib.retracement?.["0.764"])} 元`);
+    lines.push(`1.618正式目標：${fmt(s.fib.target1618)} 元`);
+  }else if(s.forming){
+    lines.push(`1.618預估目標：${fmt(s.fib.target1618)} 元（尚未正式確認）`);
+  }else{
+    lines.push("目前不產生新的正式0.618／0.764／1.618。");
+  }
+  lines.push("");
+  if(!monthlyDataUnavailable(report)&&report.entry===true&&s.fixed?.next){
+    const d=signedDistancePct(s.fixed.next.p,report.close);
+    lines.push(`【固定倍數】下一關：${s.fixed.next.m}×＝${fmt(s.fixed.next.p)} 元｜距現價 ${d===null?"-":fmtSignedPct(d)}`);
+  }else if(monthlyDataUnavailable(report)){
+    lines.push("【固定倍數】官方月線資料暫不可用，本次暫停計算");
+  }else{
+    lines.push("【固定倍數】月線條件未成立，目前暫停計算");
+  }
+  return lines;
+}
+
+function buildHistoryLinesV323(report,s){
+  const lines=[];
+  lines.push("⚠️ 歷史N字不等於目前訊號；若上一組剛完成，主策略區會另外提升提示。");
+  lines.push("📘 歷史列出的三個價格依序就是：A起漲點／B前波高點／C回檔低點。");
+  const failed=s.fib?.lastFailedFib;
+  const completed=s.fib?.lastCompletedFib;
+  if(failed)lines.push(`🔴 上一組失敗：${fmt(failed.A)}／${fmt(failed.B)}／${fmt(failed.C)}｜Fib確認 ${datefmt(failed.fibBreakoutDate||failed.breakoutDate)}｜失敗 ${datefmt(failed.failedDate)}`);
+  if(completed)lines.push(`🏆 上一組完成：${fmt(completed.A)}／${fmt(completed.B)}／${fmt(completed.C)}｜🔥戰術突破 ${datefmt(completed.tacticalBreakoutDate)}｜📐前高確認 ${datefmt(completed.fibBreakoutDate||completed.breakoutDate)}｜1.618 ${fmt(completed.target1618)}｜完成 ${datefmt(completed.completedDate)}`);
+  if(!failed&&!completed)lines.push("⚪ 目前沒有可顯示的上一組失敗／完成N字紀錄。");
+  return lines;
+}
+
+function buildRememberLinesV323(report,s){
+  const lines=[];
+  lines.push("📘 ABC：A＝起漲點｜B＝前波高點｜C＝回檔低點");
+  lines.push(`📍 現價 ${fmt(report.close)} 元`);
+  if(s.maCtx.value!==null)lines.push(`${s.maCtx.icon} 日20MA ${fmt(s.maCtx.value)} 元｜${s.maCtx.label}`);
+  if(s.confirmed){
+    if(n(s.fib.B)!==null)lines.push(`🛡️ 前波高點B ${fmt(s.fib.B)} 元｜完整N字核心`);
+    if(n(s.fib.target1618)!==null)lines.push(`🎯 1.618正式目標 ${fmt(s.fib.target1618)} 元`);
+  }else if(s.tacticalActive){
+    lines.push(`🔥 戰術頸線 ${fmt(s.tacticalEvent.neckline)} 元`);
+  }else if(s.forming&&n(s.fib.B)!==null){
+    lines.push(`🎯 前波高點B ${fmt(s.fib.B)} 元｜完整N字確認門檻`);
+  }else{
+    lines.push("⚪ 目前沒有新的近端正式Fib／戰術價位");
+  }
+  return lines;
+}
+
+function buildLazySummaryLinesV323(report,s){
+  const lines=[];
+  if(monthlyDataUnavailable(report))lines.push("🟡 中長期趨勢：官方月線資料暫不可用，本次不硬判多空。");
+  else if(report.entry===true)lines.push("✅ 中長期趨勢：目前月線條件「成立」，長線方向偏多。");
+  else lines.push("🔴 中長期趨勢：目前月線條件「未成立」，波段布局先等待。");
+
+  if(s.confirmed)lines.push("🟢 短線結構：完整N字已確認，接下來重點是支撐、目標距離與位置風險。");
+  else if(s.forming)lines.push("🟡 短線結構：A、B、C已形成，正在等待完整日線收盤突破B。");
+  else if(s.tacticalActive)lines.push("🔥 短線結構：戰術N字已轉強，但完整N字尚未確認。");
+  else if(s.hasAB)lines.push("🟡 短線結構：A、B已出現，正在等待有效C形成。");
+  else lines.push("⚪ 短線結構：目前沒有新的完整N字，正在等待新的價格轉折。");
+
+  if(s.confirmed&&(s.overheated||s.poorRR||s.nearTarget||s.nearFixed))lines.push("📌 操作建議：結構雖強但位置吸引力下降；未持有不追價，已持有開始提高獲利保護。");
+  else if(s.confirmed)lines.push("📌 操作建議：以健康回測守住／再攻為優先，不因單日急漲追價。");
+  else if(s.tacticalActive)lines.push("📌 操作建議：戰術轉強先觀察，不追價；等待回測或完整N字確認。");
+  else lines.push("📌 操作建議：目前沒有明確結構，先觀望，等待新的戰術突破或完整N字出現。");
+  return lines;
+}
+
+function buildFinalReadingLinesV323(report,s){
+  const lines=[];
+  if(monthlyDataUnavailable(report)){
+    lines.push("🟡 官方月線資料暫不可用；本次不把『缺資料』誤判成月線失效，短線Fib／戰術N字仍可分開參考。");
+  }else if(report.entry===true){
+    lines.push("🟢 月線波段條件目前成立；接下來仍要把『趨勢方向』與『現在位置是否值得新進／加碼』分開判斷。");
+  }else{
+    lines.push("🔴 月線波段條件目前未成立；波段新進／加碼先等待月K重新站回當時月20MA。");
+  }
+  lines.push(`${s.structure.icon} 短線結構：${s.structure.label}。`);
+  lines.push(`${s.entryIcon} 新進場：${s.entryLabel}。`);
+  lines.push(`${s.addIcon} 加碼：${s.addLabel}。`);
+  if(s.profitProtection)lines.push("⚠️ 目前獲利保護優先級提高；量價轉弱、長上影、新高失敗與關鍵價失守，可作為分批處理依據。");
+  else lines.push("📌 目前若沒有正式近端目標／防守，就明確等待新結構，不為了『一定要有買賣價』而硬湊價位。");
+  return lines;
+}
+
+function buildReportTextV323(report){
+  if(!report)return "";
+  const s=currentStrategyStateV321(report);
+  const lines=[];
+  lines.push("📘 石頭少爺分析助手｜V3.2.3 新手小白友善版");
+  lines.push(`報告產出時間：${reportGeneratedAt()}`);
+  lines.push("");
+  lines.push(`股票：${formatStockNameWithCode(report.name,report.code)}｜${marketNameZh(report.market)}`);
+  lines.push(`最新交易日：${datefmt(report.closeDate)}｜資料來源：${sourceNameZh(report.source)}`);
+  lines.push(`📍 最新收盤價：${fmt(report.close)} 元`);
+  lines.push("");
+
+  lineSection(lines,"🚦 先看結論｜現在該怎麼做？");
+  lines.push(...buildStrategyQuickLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🧩 新手先懂ABC｜這檔現在走到哪一步？");
+  lines.push(...buildABCNewbieLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"👤 未持有者｜現在怎麼布局？");
+  lines.push(...buildUnheldLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"👤 已持有者｜現在怎麼做？");
+  lines.push(...buildHeldLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🚀 什麼時候可以評估加碼？");
+  lines.push(...buildAddLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"💰 什麼時候開始考慮獲利了結？");
+  lines.push(...buildProfitLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"⚠️ 什麼時候轉弱／落入盤整？");
+  lines.push(...buildWeaknessLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🗺️ 價格作戰地圖");
+  lines.push(...buildPriceMapLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"📅 下一交易日｜3種白話劇本");
+  lines.push(...buildScenarioLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"📊 詳細技術資料（進階）");
+  lines.push(...buildTechnicalLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🕘 歷史N字｜生命週期回顧");
+  lines.push(...buildHistoryLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🔑 新手小白最後只要記住");
+  lines.push(...buildRememberLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🌟 小白懶人包｜3 秒看懂");
+  lines.push(...buildLazySummaryLinesV323(report,s));
+  lines.push("");
+
+  lineSection(lines,"🧭 石頭少爺判讀");
+  lines.push(...buildFinalReadingLinesV323(report,s));
+  lines.push("");
+  lines.push("⚠️ 技術分析僅供研究與決策參考。布局、加碼、續抱、分批獲利都是依價格結構提出的條件式規劃，仍需搭配個人持股成本、部位大小與可承受風險。");
+  lines.push("");
+  lines.push("前端報告版本：第3.2.3版（新手小白友善｜ABC比喻｜懶人包）");
+  lines.push(`後端分析版本：${report.version||"-"}`);
+  lines.push("費波那契N字演算法：轉折點結構第2.4版");
+  return lines.join("\n");
+}
+
+function buildReportText(report){
+  return buildReportTextV323(report);
+}
+
 
 async function copyReport(){
   const message=document.getElementById("copyMessage");
@@ -5089,6 +5567,8 @@ async function analyzeStock(){
     const breakMonth=field(data,["previousBreakMonth"]);
     const breakClose=field(data,["previousBreakClose"]);
     const breakMA=field(data,["previousBreakMA20"]);
+    const officialMonthlyUnavailable=data?.officialMonthlyUnavailable===true;
+    const officialMonthlyUnavailableReason=field(data,["officialMonthlyUnavailableReason"]);
     const fib=data?.fib||null;
     const tacticalN=data?.tacticalN||null;
     const volume=data?.volume||null;
@@ -5097,15 +5577,20 @@ async function analyzeStock(){
 
     lastReportData={
       name,code,market,source,version,close,closeDate,entry,stage,startMonth,startClose,startHigh,startLow,
-      base,latestMonthClose,latestMA,dailyRsi,breakMonth,breakClose,breakMA,fib,tacticalN,volume,structure,tactical
+      base,latestMonthClose,latestMA,dailyRsi,breakMonth,breakClose,breakMA,
+      officialMonthlyUnavailable,officialMonthlyUnavailableReason,
+      fib,tacticalN,volume,structure,tactical
     };
 
     set("stockName",hasRealStockName(name,code)?name:`股票代號 ${code}`);
-    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.2`);
+    set("stockMeta",`${code}｜${market}｜${source}｜後端分析 ${version}｜前端 V3.2.3`);
     set("closeDate",`最新交易日：${datefmt(closeDate)}`);
 
     const status=document.getElementById("status");
-    if(entry===true){
+    if(officialMonthlyUnavailable){
+      status.className="status warn";
+      status.textContent="🟡 官方月線資料暫不可用｜本次不判定月線成立或失效｜Fib／戰術N字仍可正常參考";
+    }else if(entry===true){
       status.className="status ok";
       status.textContent=`✅ 月線符合條件｜${stage||"有效區段"}｜可計算固定倍數目標價`;
     }else{
@@ -5123,9 +5608,11 @@ async function analyzeStock(){
     set("startLow",fmt(startLow));
     set("baseValue",fmt(base));
 
-    renderTargets(entry,base,close,latestMonthClose,latestMA);
+    renderTargets(entry,base,close,latestMonthClose,latestMA,officialMonthlyUnavailable);
 
-    if(breakMonth){
+    if(officialMonthlyUnavailable){
+      set("previousBreak","🟡 官方月線資料暫不可用，本次不判讀月線區段、起始月或跌破月份；這不代表月線條件失效。");
+    }else if(breakMonth){
       set("previousBreak",`上一個跌破月份：${month(breakMonth)}｜收盤 ${fmt(breakClose)} < 20MA ${fmt(breakMA)}`);
     }else{
       set("previousBreak","目前判斷區間內沒有可顯示的上一個跌破月份。");
