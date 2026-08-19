@@ -385,6 +385,7 @@ const LOCAL_NAME_MAP={
   // 內建備援只在官方清單／單股查詢暫時失敗時使用；官方資料仍永遠優先。
   "1815":"富喬",
   "2377":"微星",
+  "3081":"聯亞",
   "3317":"尼克森",
   "3374":"精材",
   "3388":"崇越電",
@@ -3873,7 +3874,8 @@ function currentStrategyStateV321(report){
   const out={...base,maCtx,volume,latestVolume,tacticalAge,tacticalEvent,completed,monthlyRecoveryDist,bState,cState,structure,highCurrentVolume,veryHighCurrentVolume,extremeCurrentVolume,extremeLowVolume,maExtended,recentCompletion,profitProtection,threeDayBad,currentDefenseBroken,addQualityV321};
 
   let entryIcon="🟡",entryLabel="等待更完整的價格結構";
-  if(report?.entry!==true){entryIcon="🔴";entryLabel="波段新進場鎖定｜月線資格未成立";}
+  if(monthlyDataUnavailable(report)){entryIcon="🟡";entryLabel="波段新進場暫緩｜官方月線資格未判定";}
+  else if(report?.entry!==true){entryIcon="🔴";entryLabel="波段新進場鎖定｜月線資格未成立";}
   else if(base.overheated){entryIcon="🔴";entryLabel="不追價｜RSI過熱條件已觸發";}
   else if(base.confirmed&&(base.poorRR||base.nearTarget)){entryIcon="🔴";entryLabel="位置吸引力偏低｜方向與位置分開看";}
   else if(maExtended&&!base.confirmed){entryIcon="⚠️";entryLabel="價格乖離偏大且缺乏近端正式結構";}
@@ -3881,7 +3883,8 @@ function currentStrategyStateV321(report){
   else if(base.forming||base.hasAB){entryIcon="🟡";entryLabel="等待C／確認門檻，不提前猜完整N字";}
   out.entryIcon=entryIcon;out.entryLabel=entryLabel;
 
-  if(report?.entry!==true){out.addIcon="🔴";out.addLabel="波段加碼鎖定";}
+  if(monthlyDataUnavailable(report)){out.addIcon="🟡";out.addLabel="波段加碼暫緩｜官方月線資格未判定";}
+  else if(report?.entry!==true){out.addIcon="🔴";out.addLabel="波段加碼鎖定";}
   else if(addQualityV321){out.addIcon="🟢";out.addLabel="條件較完整，可等回測守穩／再攻評估";}
   else if(base.confirmed){out.addIcon="🟡";out.addLabel="暫不積極加碼，等待條件改善";}
   else{out.addIcon="🔴";out.addLabel="完整Fib尚未確認，暫不主動加碼";}
