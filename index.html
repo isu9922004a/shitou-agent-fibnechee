@@ -5221,22 +5221,38 @@ function buildWeaknessLinesV323(report,s){
 }
 
 function buildPriceMapLinesV323(report,s){
-  const lines=[];
-  if(s.maCtx.value!==null)lines.push(`${s.maCtx.icon} ${fmt(s.maCtx.value)} 元｜日20MA／第一修復觀察`);
-  lines.push(`📍 ${fmt(report.close)} 元｜目前收盤價`);
+  const items=[];
+  const add=(price,text)=>{
+    const p=n(price);
+    if(p!==null)items.push({price:p,text});
+  };
+
+  add(report.close,`📍 ${fmt(report.close)} 元｜目前收盤價`);
+
+  if(s.maCtx.value!==null){
+    add(s.maCtx.value,`${s.maCtx.icon} ${fmt(s.maCtx.value)} 元｜日20MA／第一修復觀察`);
+  }
+
   if(!monthlyDataUnavailable(report)&&n(report.latestMA)!==null){
-    lines.push(`${report.entry===true?"🔴":"🟡"} ${fmt(report.latestMA)} 元｜目前月20MA／月線條件參考（需月K收盤判定）`);
+    add(report.latestMA,`${report.entry===true?"🔴":"🟡"} ${fmt(report.latestMA)} 元｜目前月20MA／月線條件參考（需月K收盤判定）`);
   }
-  if(s.tacticalActive&&n(s.tacticalEvent.neckline)!==null)lines.push(`🔥 ${fmt(s.tacticalEvent.neckline)} 元｜戰術N字前三高頸線`);
+
+  if(s.tacticalActive&&n(s.tacticalEvent.neckline)!==null){
+    add(s.tacticalEvent.neckline,`🔥 ${fmt(s.tacticalEvent.neckline)} 元｜戰術N字前三高頸線`);
+  }
+
   if(s.confirmed){
-    if(n(s.fib.B)!==null)lines.push(`🛡️ ${fmt(s.fib.B)} 元｜前波高點B／完整N字核心`);
-    if(n(s.fib.retracement?.["0.618"])!==null)lines.push(`🛡️ ${fmt(s.fib.retracement["0.618"])} 元｜0.618主要支撐`);
-    if(n(s.fib.retracement?.["0.764"])!==null)lines.push(`🚨 ${fmt(s.fib.retracement["0.764"])} 元｜0.764深度風控`);
-    if(n(s.fib.target1618)!==null)lines.push(`🎯 ${fmt(s.fib.target1618)} 元｜1.618正式目標`);
+    if(n(s.fib.B)!==null)add(s.fib.B,`🛡️ ${fmt(s.fib.B)} 元｜前波高點B／完整N字核心`);
+    if(n(s.fib.retracement?.["0.618"])!==null)add(s.fib.retracement["0.618"],`🛡️ ${fmt(s.fib.retracement["0.618"])} 元｜0.618主要支撐`);
+    if(n(s.fib.retracement?.["0.764"])!==null)add(s.fib.retracement["0.764"],`🚨 ${fmt(s.fib.retracement["0.764"])} 元｜0.764深度風控`);
+    if(n(s.fib.target1618)!==null)add(s.fib.target1618,`🎯 ${fmt(s.fib.target1618)} 元｜1.618正式目標`);
   }else if(s.forming&&n(s.fib.B)!==null){
-    lines.push(`🎯 ${fmt(s.fib.B)} 元｜前波高點B／完整N字確認門檻`);
+    add(s.fib.B,`🎯 ${fmt(s.fib.B)} 元｜前波高點B／完整N字確認門檻`);
   }
-  return lines;
+
+  return items
+    .sort((a,b)=>b.price-a.price)
+    .map(item=>item.text);
 }
 
 function buildScenarioLinesV323(report,s){
